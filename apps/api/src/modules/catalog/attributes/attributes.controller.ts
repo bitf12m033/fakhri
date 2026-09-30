@@ -1,4 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { UserRole } from '@fakhri/prisma';
+import { Roles } from '../../auth/auth.decorators';
 import { AttributesService } from './attributes.service';
 import {
   CreateAttributeDto,
@@ -9,6 +11,7 @@ import {
 } from './attribute.dto';
 
 @Controller('admin/attributes')
+@Roles(UserRole.CATALOG)
 export class AttributesController {
   constructor(private readonly attributes: AttributesService) {}
 

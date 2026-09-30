@@ -58,6 +58,9 @@ services:
       REDIS_URL: redis://redis:6379
       CORS_ORIGIN: http://localhost:3001
       LOG_LEVEL: info
+      # Dev-only value. Real deployments inject this from the secret store.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-insecure-secret-change-me-0000}
+      JWT_ISSUER: fakhri-api
     depends_on:
       postgres:
         condition: service_healthy

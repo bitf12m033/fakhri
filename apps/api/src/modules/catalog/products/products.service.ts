@@ -4,7 +4,7 @@ import { buildMeta, conflict, normalizePagination, notFound } from '@fakhri/shar
 import { AuditService } from '../../../audit/audit.service';
 import { OutboxService } from '../../../outbox/outbox.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CATALOG_ACTOR, CATALOG_LIMITS, PRODUCT_PUBLISHED } from '../catalog.constants';
+import { CATALOG_LIMITS, PRODUCT_PUBLISHED } from '../catalog.constants';
 import { inTx, invalid } from '../catalog.errors';
 import {
   iso,
@@ -115,7 +115,7 @@ export class ProductsService {
       if (status === ProductStatus.ACTIVE) await this.publish(tx, created.id, slug);
       await this.documents.refreshProduct(tx, created.id);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.product.create', entityType: 'Product', entityId: created.id, after: { slug, status } },
+        { action: 'catalog.product.create', entityType: 'Product', entityId: created.id, after: { slug, status } },
         tx,
       );
       return created.id;
@@ -218,7 +218,7 @@ export class ProductsService {
       if (publishing) await this.publish(tx, id, updated.slug);
       await this.documents.refreshProduct(tx, id);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.product.update', entityType: 'Product', entityId: id, after: dto },
+        { action: 'catalog.product.update', entityType: 'Product', entityId: id, after: dto },
         tx,
       );
     });
@@ -229,7 +229,7 @@ export class ProductsService {
     await this.get(id);
     await inTx(this.prisma, 'Product', async (tx) => {
       await tx.product.delete({ where: { id } });
-      await this.audit.log({ ...CATALOG_ACTOR, action: 'catalog.product.delete', entityType: 'Product', entityId: id }, tx);
+      await this.audit.log({ action: 'catalog.product.delete', entityType: 'Product', entityId: id }, tx);
     });
     return { id };
   }
@@ -253,7 +253,7 @@ export class ProductsService {
       await this.values.write(tx, { variantId: created.id }, plan.values);
       await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.variant.create', entityType: 'ProductVariant', entityId: created.id, after: { sku: dto.sku, productId } },
+        { action: 'catalog.variant.create', entityType: 'ProductVariant', entityId: created.id, after: { sku: dto.sku, productId } },
         tx,
       );
       return created.id;
@@ -300,7 +300,7 @@ export class ProductsService {
       });
       await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.variant.update', entityType: 'ProductVariant', entityId: variantId, after: dto },
+        { action: 'catalog.variant.update', entityType: 'ProductVariant', entityId: variantId, after: dto },
         tx,
       );
     });
@@ -317,7 +317,7 @@ export class ProductsService {
       await tx.productVariant.delete({ where: { id: variantId } });
       await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.variant.delete', entityType: 'ProductVariant', entityId: variantId },
+        { action: 'catalog.variant.delete', entityType: 'ProductVariant', entityId: variantId },
         tx,
       );
     });
@@ -348,7 +348,7 @@ export class ProductsService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.image.create', entityType: 'ProductImage', entityId: created.id, after: { productId, url: dto.url } },
+        { action: 'catalog.image.create', entityType: 'ProductImage', entityId: created.id, after: { productId, url: dto.url } },
         tx,
       );
       return created.id;
@@ -374,7 +374,7 @@ export class ProductsService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.image.update', entityType: 'ProductImage', entityId: imageId, after: dto },
+        { action: 'catalog.image.update', entityType: 'ProductImage', entityId: imageId, after: dto },
         tx,
       );
     });
@@ -385,7 +385,7 @@ export class ProductsService {
     await this.image(productId, imageId);
     await inTx(this.prisma, 'Image', async (tx) => {
       await tx.productImage.delete({ where: { id: imageId } });
-      await this.audit.log({ ...CATALOG_ACTOR, action: 'catalog.image.delete', entityType: 'ProductImage', entityId: imageId }, tx);
+      await this.audit.log({ action: 'catalog.image.delete', entityType: 'ProductImage', entityId: imageId }, tx);
     });
     return { id: imageId };
   }
@@ -400,7 +400,7 @@ export class ProductsService {
       await this.values.write(tx, { productId }, prepared);
       await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.product_attribute_values.replace', entityType: 'Product', entityId: productId, after: { count: prepared.length } },
+        { action: 'catalog.product_attribute_values.replace', entityType: 'Product', entityId: productId, after: { count: prepared.length } },
         tx,
       );
     });
@@ -415,7 +415,6 @@ export class ProductsService {
       await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.variant_attribute_values.replace',
           entityType: 'ProductVariant',
           entityId: variantId,

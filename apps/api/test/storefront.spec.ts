@@ -5,8 +5,12 @@ import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
+import { createAdmin, deleteAdmins } from './support/admin';
 
 let app: INestApplication;
+/** Admin routes require an authenticated admin since increment 3.4. */
+let adminToken: string;
+let adminIds: string[] = [];
 
 /**
  * Public read + search APIs (increment 3.3). Seeds a small catalog through the
@@ -48,12 +52,16 @@ describe('Storefront reads and search (e2e)', () => {
     await app.init();
     const prisma = app.get(PrismaService);
     await cleanup(prisma);
+    const admin = await createAdmin(app);
+    adminToken = admin.token;
+    adminIds = [admin.id];
     await seed(prisma);
   }, 60_000);
 
   afterAll(async () => {
     if (!app) return;
     await cleanup(app.get(PrismaService));
+    await deleteAdmins(app.get(PrismaService), adminIds);
     await app.close();
   });
 
@@ -219,7 +227,7 @@ describe('Storefront reads and search (e2e)', () => {
     expect(hits.map((item: { slug: string }) => item.slug)).toEqual([slug.big]);
 
     // An admin reindex is idempotent.
-    const reindex = await server().post('/api/v1/admin/search/reindex');
+    const reindex = await server().post('/api/v1/admin/search/reindex').set('Authorization', `Bearer ${adminToken}`);
     expect(reindex.status).toBe(200);
     expect(reindex.body.data.products).toBeGreaterThan(0);
     expect((await pub(`/products?q=${tagToken}`)).map((item: { slug: string }) => item.slug)).toEqual([slug.big]);
@@ -375,19 +383,19 @@ async function pub(path: string) {
 }
 
 async function post(path: string, body: unknown) {
-  const res = await server().post(`/api/v1/admin${path}`).send(body);
+  const res = await server().post(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   return res.body.data;
 }
 
 async function put(path: string, body: unknown) {
-  const res = await server().put(`/api/v1/admin${path}`).send(body);
+  const res = await server().put(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.data;
 }
 
 async function patch(path: string, body: unknown) {
-  const res = await server().patch(`/api/v1/admin${path}`).send(body);
+  const res = await server().patch(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.data;
 }

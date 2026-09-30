@@ -3,7 +3,6 @@ import { Prisma } from '@fakhri/prisma';
 import { buildMeta, conflict, normalizePagination, notFound } from '@fakhri/shared';
 import { AuditService } from '../../../audit/audit.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CATALOG_ACTOR } from '../catalog.constants';
 import { inTx } from '../catalog.errors';
 import { iso, jsonWrite, readSeo, SeoView } from '../catalog.serialize';
 import { requireSlug } from '../catalog.slug';
@@ -46,7 +45,7 @@ export class BrandsService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.brand.create', entityType: 'Brand', entityId: created.id, after: { slug, name: dto.name } },
+        { action: 'catalog.brand.create', entityType: 'Brand', entityId: created.id, after: { slug, name: dto.name } },
         tx,
       );
       return created.id;
@@ -95,7 +94,6 @@ export class BrandsService {
       }
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.brand.update',
           entityType: 'Brand',
           entityId: id,
@@ -115,7 +113,7 @@ export class BrandsService {
     await inTx(this.prisma, 'Brand', async (tx) => {
       await tx.brand.delete({ where: { id } });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.brand.delete', entityType: 'Brand', entityId: id, before: serializeBrand(existing) },
+        { action: 'catalog.brand.delete', entityType: 'Brand', entityId: id, before: serializeBrand(existing) },
         tx,
       );
     });

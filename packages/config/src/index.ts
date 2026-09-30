@@ -14,6 +14,16 @@ const EnvSchema = z.object({
   OTP_TTL_MINUTES: z.coerce.number().int().positive().default(5),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+  // Auth (increment 3.4). The signing secret has no default on purpose:
+  // a deployment without it must fail to boot rather than sign with a known key.
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  JWT_ISSUER: z.string().default('fakhri-api'),
+  AUTH_MAX_FAILED_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  AUTH_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OTP_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_AUTH_PER_MINUTE: z.coerce.number().int().positive().default(10),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

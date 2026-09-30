@@ -1,8 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Public } from '../../auth/auth.decorators';
 import { ListQueryDto } from '../dto/list-query.dto';
 import { StorefrontService } from './storefront.service';
 
 @Controller('categories')
+@Public()
 export class PublicCategoriesController {
   constructor(private readonly storefront: StorefrontService) {}
 
@@ -19,6 +21,7 @@ export class PublicCategoriesController {
 }
 
 @Controller('brands')
+@Public()
 export class PublicBrandsController {
   constructor(private readonly storefront: StorefrontService) {}
 

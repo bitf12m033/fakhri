@@ -1,8 +1,11 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { UserRole } from '@fakhri/prisma';
+import { Roles } from '../../auth/auth.decorators';
 import { BrandsService } from './brands.service';
 import { CreateBrandDto, ListBrandsQueryDto, UpdateBrandDto } from './brand.dto';
 
 @Controller('admin/brands')
+@Roles(UserRole.CATALOG)
 export class BrandsController {
   constructor(private readonly brands: BrandsService) {}
 

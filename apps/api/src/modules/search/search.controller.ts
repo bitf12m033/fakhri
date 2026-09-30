@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Public } from '../auth/auth.decorators';
 import { StorefrontService } from '../catalog/public/storefront.service';
 import { ProductSearchService } from './product-search.service';
 import { CompareQueryDto, SearchProductsQueryDto, SuggestQueryDto } from './search.dto';
@@ -17,6 +18,7 @@ import {
  * literal route wins; keep it that way when adding routes here.
  */
 @Controller('products')
+@Public()
 export class PublicProductsController {
   constructor(
     private readonly search: ProductSearchService,
@@ -51,6 +53,7 @@ export class PublicProductsController {
 }
 
 @Controller('compare')
+@Public()
 export class PublicCompareController {
   constructor(private readonly storefront: StorefrontService) {}
 

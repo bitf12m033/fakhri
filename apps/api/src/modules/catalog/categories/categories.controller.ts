@@ -1,4 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { UserRole } from '@fakhri/prisma';
+import { Roles } from '../../auth/auth.decorators';
 import { CategoriesService } from './categories.service';
 import {
   CreateCategoryDto,
@@ -8,6 +10,7 @@ import {
 } from './category.dto';
 
 @Controller('admin/categories')
+@Roles(UserRole.CATALOG)
 export class CategoriesController {
   constructor(private readonly categories: CategoriesService) {}
 

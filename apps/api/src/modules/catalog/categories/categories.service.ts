@@ -3,7 +3,7 @@ import { AttributeType, Prisma } from '@fakhri/prisma';
 import { buildMeta, conflict, normalizePagination, notFound } from '@fakhri/shared';
 import { AuditService } from '../../../audit/audit.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CATALOG_ACTOR, CATALOG_LIMITS } from '../catalog.constants';
+import { CATALOG_LIMITS } from '../catalog.constants';
 import { inTx, invalid } from '../catalog.errors';
 import { iso, jsonWrite, readSeo, SeoView } from '../catalog.serialize';
 import { requireSlug } from '../catalog.slug';
@@ -86,7 +86,7 @@ export class CategoriesService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.category.create', entityType: 'Category', entityId: created.id, after: { slug, name: dto.name } },
+        { action: 'catalog.category.create', entityType: 'Category', entityId: created.id, after: { slug, name: dto.name } },
         tx,
       );
       return created.id;
@@ -153,7 +153,6 @@ export class CategoriesService {
       }
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.category.update',
           entityType: 'Category',
           entityId: id,
@@ -178,7 +177,7 @@ export class CategoriesService {
     await inTx(this.prisma, 'Category', async (tx) => {
       await tx.category.delete({ where: { id } });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.category.delete', entityType: 'Category', entityId: id, before: serializeCategory(existing) },
+        { action: 'catalog.category.delete', entityType: 'Category', entityId: id, before: serializeCategory(existing) },
         tx,
       );
     });
@@ -250,7 +249,6 @@ export class CategoriesService {
       }
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.category_attribute.replace',
           entityType: 'Category',
           entityId: categoryId,
@@ -272,7 +270,6 @@ export class CategoriesService {
       await tx.categoryAttribute.delete({ where: { categoryId_attributeId: { categoryId, attributeId } } });
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.category_attribute.delete',
           entityType: 'Category',
           entityId: categoryId,

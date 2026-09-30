@@ -5,8 +5,12 @@ import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
+import { createAdmin, deleteAdmins } from './support/admin';
 
 let app: INestApplication;
+/** Admin routes require an authenticated admin since increment 3.4. */
+let adminToken: string;
+let adminIds: string[] = [];
 
 /**
  * Catalog admin CRUD (increment 3.2). Requires postgres at the dev default.
@@ -38,11 +42,15 @@ describe('Catalog admin (e2e)', () => {
     await configureApp(app);
     await app.init();
     await cleanup(app.get(PrismaService));
-  }, 30_000);
+    const admin = await createAdmin(app);
+    adminToken = admin.token;
+    adminIds = [admin.id];
+  }, 60_000);
 
   afterAll(async () => {
     if (!app) return;
     await cleanup(app.get(PrismaService));
+    await deleteAdmins(app.get(PrismaService), adminIds);
     await app.close();
   });
 
@@ -57,17 +65,17 @@ describe('Catalog admin (e2e)', () => {
     expect(appliances.children.map((node: { id: string }) => node.id)).toContain(child.id);
 
     const cycle = await request(app.getHttpServer())
-      .patch(`/api/v1/admin/categories/${parent.id}`)
+      .patch(`/api/v1/admin/categories/${parent.id}`).set('Authorization', `Bearer ${adminToken}`)
       .send({ parentId: child.id });
     expect(cycle.status).toBe(409);
     expect(cycle.body.error.code).toBe('CONFLICT');
 
     const duplicate = await request(app.getHttpServer())
-      .post('/api/v1/admin/categories')
+      .post('/api/v1/admin/categories').set('Authorization', `Bearer ${adminToken}`)
       .send({ name: 'Appliances again', slug: `${run}-appliances` });
     expect(duplicate.status).toBe(409);
 
-    const missing = await request(app.getHttpServer()).get('/api/v1/admin/categories/missing');
+    const missing = await request(app.getHttpServer()).get('/api/v1/admin/categories/missing').set('Authorization', `Bearer ${adminToken}`);
     expect(missing.status).toBe(404);
     expect(missing.body.error.code).toBe('NOT_FOUND');
     expect(missing.body.error.traceId).toBeTruthy();
@@ -93,7 +101,7 @@ describe('Catalog admin (e2e)', () => {
     ids.white = (await post(`/attributes/${ids.color}/options`, { value: 'white', label: 'White' })).id;
 
     const optionOnNumber = await request(app.getHttpServer())
-      .post(`/api/v1/admin/attributes/${ids.btu}/options`)
+      .post(`/api/v1/admin/attributes/${ids.btu}/options`).set('Authorization', `Bearer ${adminToken}`)
       .send({ value: 'nope', label: 'Nope' });
     expect(optionOnNumber.status).toBe(400);
     expect(optionOnNumber.body.error.code).toBe('INVALID_INPUT');
@@ -136,14 +144,14 @@ describe('Catalog admin (e2e)', () => {
     expect(draft.variants[0].price).toBe('184999.00');
     expect(draft.variants[0].costPrice).toBe('150000.00');
 
-    const tooSoon = await request(app.getHttpServer()).patch(`/api/v1/admin/products/${draft.id}`).send({ status: 'ACTIVE' });
+    const tooSoon = await request(app.getHttpServer()).patch(`/api/v1/admin/products/${draft.id}`).set('Authorization', `Bearer ${adminToken}`).send({ status: 'ACTIVE' });
     expect(tooSoon.status).toBe(400);
     expect(tooSoon.body.error.code).toBe('INVALID_INPUT');
     expect(tooSoon.body.error.details.missing.map((item: { slug: string }) => item.slug).sort()).toEqual(
       [`${run}-cooling-btu`, `${run}-energy`].sort(),
     );
 
-    const lowBtu = await request(app.getHttpServer()).put(`/api/v1/admin/products/${draft.id}/attribute-values`).send({
+    const lowBtu = await request(app.getHttpServer()).put(`/api/v1/admin/products/${draft.id}/attribute-values`).set('Authorization', `Bearer ${adminToken}`).send({
       values: [
         { attributeId: ids.energy, optionValueId: ids.inverter },
         { attributeId: ids.btu, numberValue: '12' },
@@ -151,7 +159,7 @@ describe('Catalog admin (e2e)', () => {
     });
     expect(lowBtu.status).toBe(400);
 
-    const wrongKind = await request(app.getHttpServer()).put(`/api/v1/admin/products/${draft.id}/attribute-values`).send({
+    const wrongKind = await request(app.getHttpServer()).put(`/api/v1/admin/products/${draft.id}/attribute-values`).set('Authorization', `Bearer ${adminToken}`).send({
       values: [{ attributeId: ids.energy, numberValue: '1' }],
     });
     expect(wrongKind.status).toBe(400);
@@ -170,7 +178,7 @@ describe('Catalog admin (e2e)', () => {
     );
 
     const cheap = await request(app.getHttpServer())
-      .patch(`/api/v1/admin/products/${draft.id}/variants/${ids.variant}`)
+      .patch(`/api/v1/admin/products/${draft.id}/variants/${ids.variant}`).set('Authorization', `Bearer ${adminToken}`)
       .send({ compareAtPrice: '100.00' });
     expect(cheap.status).toBe(400);
 
@@ -201,9 +209,9 @@ describe('Catalog admin (e2e)', () => {
     const listed = await get('/products?q=' + encodeURIComponent(run));
     expect(listed.some((item: { id: string }) => item.id === draft.id)).toBe(true);
 
-    const blockedCategory = await request(app.getHttpServer()).delete(`/api/v1/admin/categories/${ids.child}`);
+    const blockedCategory = await request(app.getHttpServer()).delete(`/api/v1/admin/categories/${ids.child}`).set('Authorization', `Bearer ${adminToken}`);
     expect(blockedCategory.status).toBe(409);
-    const blockedOption = await request(app.getHttpServer()).delete(`/api/v1/admin/attributes/${ids.energy}/options/${ids.inverter}`);
+    const blockedOption = await request(app.getHttpServer()).delete(`/api/v1/admin/attributes/${ids.energy}/options/${ids.inverter}`).set('Authorization', `Bearer ${adminToken}`);
     expect(blockedOption.status).toBe(409);
   });
 });
@@ -213,25 +221,25 @@ function server() {
 }
 
 async function post(path: string, body: unknown) {
-  const res = await server().post(`/api/v1/admin${path}`).send(body);
+  const res = await server().post(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   return res.body.data;
 }
 
 async function put(path: string, body: unknown) {
-  const res = await server().put(`/api/v1/admin${path}`).send(body);
+  const res = await server().put(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.data;
 }
 
 async function patch(path: string, body: unknown) {
-  const res = await server().patch(`/api/v1/admin${path}`).send(body);
+  const res = await server().patch(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`).send(body);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.data;
 }
 
 async function get(path: string) {
-  const res = await server().get(`/api/v1/admin${path}`);
+  const res = await server().get(`/api/v1/admin${path}`).set('Authorization', `Bearer ${adminToken}`).set('Authorization', `Bearer ${adminToken}`);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.data;
 }

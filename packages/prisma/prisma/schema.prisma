@@ -425,6 +425,7 @@ model Customer {
   wishlistItems WishlistItem[]
   orders        Order[]
   reviews       Review[]
+  refreshTokens RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -512,9 +513,12 @@ model AdminUser {
   updatedAt DateTime @updatedAt
 }
 
+// Opaque rotating refresh token, stored only as a hash. Subject is an admin
+// XOR a customer (CHECK constraint in the migration, increment 3.4).
 model RefreshToken {
   id                 String      @id @default(cuid())
-  userId             String
+  userId             String?
+  customerId         String?
   tokenHash          String      @unique
   expiresAt          DateTime
   revokedAt          DateTime?
@@ -522,9 +526,13 @@ model RefreshToken {
   userAgent          String?
   ip                 String?
 
-  user AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([customerId])
 }
 
 // ---------------------------------------------------------------- Cart, orders, payments, shipments

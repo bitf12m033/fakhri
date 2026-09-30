@@ -6,7 +6,9 @@ import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { SearchModule } from './modules/search/search.module';
 
 @Module({
@@ -20,8 +22,10 @@ import { SearchModule } from './modules/search/search.module';
     HealthModule,
     OutboxModule,
     AuditModule,
+    AuthModule,
     CatalogModule,
     SearchModule,
+    CustomersModule,
   ],
 })
 export class AppModule {}

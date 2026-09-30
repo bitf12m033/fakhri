@@ -28,10 +28,17 @@ npm run dev:infra          # docker compose up -d postgres redis minio mailhog
 cp apps/api/.env.example apps/api/.env
 npm run db:generate        # prisma client
 npm run migrate:dev        # apply migrations (creates DB schema + CHECK constraints)
-npm test                   # unit + integration (api health e2e requires postgres+redis)
+npm test                   # unit + integration (api e2e requires postgres+redis)
+
+# every /admin route needs an admin account (increment 3.4)
+ADMIN_PASSWORD='choose-a-strong-one' npm run admin:create -w apps/api -- \
+  --email you@example.com --name "You" --role SUPER_ADMIN
+
 npm run dev:api            # http://localhost:3000 (health: /health)
 npm run dev:web            # http://localhost:3001
 ```
+
+`apps/api/.env` needs `JWT_ACCESS_SECRET` (32+ chars, no default). See `apps/api/.env.example`.
 
 ## Useful
 

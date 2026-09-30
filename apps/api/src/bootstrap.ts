@@ -2,6 +2,7 @@ import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import { actorContextMiddleware } from './common/actor-context';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AppConfig } from '@fakhri/config';
 
@@ -14,6 +15,7 @@ export async function configureApp(app: INestApplication, _opts: BootstrapOption
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
 
   app.use(helmet());
+  app.use(actorContextMiddleware);
 
   const config = app.get(ConfigService<AppConfig>);
   const corsOrigins = (config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3001')

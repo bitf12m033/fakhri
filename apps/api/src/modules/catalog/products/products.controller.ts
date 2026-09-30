@@ -1,4 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { UserRole } from '@fakhri/prisma';
+import { Roles } from '../../auth/auth.decorators';
 import { ReplaceAttributeValuesDto } from '../dto/attribute-value.dto';
 import { ProductsService } from './products.service';
 import {
@@ -12,6 +14,7 @@ import {
 } from './product.dto';
 
 @Controller('admin/products')
+@Roles(UserRole.CATALOG)
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 

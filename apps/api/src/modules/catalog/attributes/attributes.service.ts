@@ -4,7 +4,6 @@ import { buildMeta, conflict, normalizePagination, notFound } from '@fakhri/shar
 import { AuditService } from '../../../audit/audit.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { parseAttributeValidation } from '../attribute-rules';
-import { CATALOG_ACTOR } from '../catalog.constants';
 import { inTx, invalid } from '../catalog.errors';
 import { iso, readJsonObject } from '../catalog.serialize';
 import { requireSlug } from '../catalog.slug';
@@ -42,7 +41,7 @@ export class AttributesService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.attribute.create', entityType: 'Attribute', entityId: created.id, after: { slug, type: dto.type } },
+        { action: 'catalog.attribute.create', entityType: 'Attribute', entityId: created.id, after: { slug, type: dto.type } },
         tx,
       );
       return created.id;
@@ -114,7 +113,7 @@ export class AttributesService {
         },
       });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.attribute.update', entityType: 'Attribute', entityId: id, after: dto },
+        { action: 'catalog.attribute.update', entityType: 'Attribute', entityId: id, after: dto },
         tx,
       );
     });
@@ -134,7 +133,7 @@ export class AttributesService {
     await inTx(this.prisma, 'Attribute', async (tx) => {
       await tx.attribute.delete({ where: { id } });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.attribute.delete', entityType: 'Attribute', entityId: id, before: { slug: existing.slug } },
+        { action: 'catalog.attribute.delete', entityType: 'Attribute', entityId: id, before: { slug: existing.slug } },
         tx,
       );
     });
@@ -150,7 +149,6 @@ export class AttributesService {
       });
       await this.audit.log(
         {
-          ...CATALOG_ACTOR,
           action: 'catalog.attribute_option.create',
           entityType: 'AttributeOption',
           entityId: created.id,
@@ -168,7 +166,7 @@ export class AttributesService {
     await inTx(this.prisma, 'Attribute option', async (tx) => {
       await tx.attributeOption.update({ where: { id: optionId }, data: dto });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.attribute_option.update', entityType: 'AttributeOption', entityId: optionId, after: dto },
+        { action: 'catalog.attribute_option.update', entityType: 'AttributeOption', entityId: optionId, after: dto },
         tx,
       );
     });
@@ -182,7 +180,7 @@ export class AttributesService {
     await inTx(this.prisma, 'Attribute option', async (tx) => {
       await tx.attributeOption.delete({ where: { id: optionId } });
       await this.audit.log(
-        { ...CATALOG_ACTOR, action: 'catalog.attribute_option.delete', entityType: 'AttributeOption', entityId: optionId },
+        { action: 'catalog.attribute_option.delete', entityType: 'AttributeOption', entityId: optionId },
         tx,
       );
     });
