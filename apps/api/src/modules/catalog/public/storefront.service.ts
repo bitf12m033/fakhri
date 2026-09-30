@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ProductStatus } from '@fakhri/prisma';
+import { Prisma, ProductStatus, ReviewStatus } from '@fakhri/prisma';
 import { buildMeta, normalizePagination, notFound } from '@fakhri/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { iso, moneyString, readSeo, SeoView } from '../catalog.serialize';
@@ -244,10 +244,11 @@ export class StorefrontService {
     });
     if (!row) throw notFound('Product');
 
-    const [template, breadcrumb, stock] = await Promise.all([
+    const [template, breadcrumb, stock, rating] = await Promise.all([
       this.categories.effectiveTemplate(row.categoryId),
       this.categories.breadcrumb(row.categoryId),
       this.stockByVariant(row.variants.map((variant) => variant.id)),
+      this.ratingFor(row.id),
     ]);
     const meta = new Map(template.map((binding) => [binding.attributeId, binding]));
     const groupOf = (attributeId: string) => meta.get(attributeId)?.group ?? null;
@@ -279,7 +280,24 @@ export class StorefrontService {
       fromPrice: moneyString(prices[0] ?? null),
       toPrice: moneyString(prices[prices.length - 1] ?? null),
       availability: bestAvailability(variants.map((variant) => variant.availability)),
+      rating,
       publishedAt: row.publishedAt ? iso(row.publishedAt) : null,
+    };
+  }
+
+  /**
+   * Approved reviews only (increment 3.7). Computed here rather than through the
+   * reviews module so the storefront projection stays a single query set.
+   */
+  private async ratingFor(productId: string): Promise<{ average: string | null; count: number }> {
+    const summary = await this.prisma.review.aggregate({
+      where: { productId, status: ReviewStatus.APPROVED },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    return {
+      average: summary._avg.rating === null ? null : summary._avg.rating.toFixed(2),
+      count: summary._count._all,
     };
   }
 

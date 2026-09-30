@@ -6,7 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { deleteAdmins } from './support/admin';
-import { RATE_LIMIT_SCOPES, resetRateLimits } from './support/customer';
+import { RATE_LIMIT_SCOPES, resetRateLimits, resetAuthState} from './support/customer';
 import { cleanupPurchase, PurchaseFixture, seedPurchaseFixture, stockOf } from './support/purchase';
 
 let app: INestApplication;
@@ -29,6 +29,7 @@ describe('Concurrent checkout does not oversell (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     await cleanupPurchase(app.get(PrismaService), run);
     fx = await seedPurchaseFixture(app, run, { onHand: 1 });
     adminIds.push(fx.adminId);

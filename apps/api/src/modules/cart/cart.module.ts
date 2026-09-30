@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { InventoryModule } from '../inventory/inventory.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 import { CartController } from './cart.controller';
 import { CartService } from './cart.service';
 
 /** Server-side cart (increment 3.5). Exported for checkout, which consumes it. */
 @Module({
-  imports: [InventoryModule],
+  imports: [InventoryModule, PromotionsModule],
   controllers: [CartController],
   providers: [CartService],
   exports: [CartService],

@@ -18,6 +18,22 @@ export function allocatePhone(): string {
   return `+923${national}`;
 }
 
+/**
+ * Clear every rate-limit bucket and lockout counter.
+ *
+ * Safe because spec files run one at a time (see vitest.config.ts): no other file
+ * is mid-assertion. Called once per file so a spec never inherits limiter state
+ * from the files that ran before it — the cause of a long tail of flakes where a
+ * test failed with 429 for something another spec had done.
+ */
+export async function resetAuthState(app: INestApplication): Promise<void> {
+  const redis = app.get(RedisService).client;
+  for (const pattern of ['rl:*', 'auth:fail:*', 'auth:lock:*']) {
+    const keys = await redis.keys(pattern);
+    if (keys.length > 0) await redis.del(...keys);
+  }
+}
+
 /** Rate-limit buckets a spec may clear, keyed by `rl:<Controller>.<handler>:...`. */
 export const RATE_LIMIT_SCOPES = {
   register: 'rl:CustomerAuthController.register*',
@@ -54,6 +70,10 @@ export interface TestCustomer {
 }
 
 export async function registerCustomer(app: INestApplication, phone = allocatePhone()): Promise<TestCustomer> {
+  // Registration is limited per address (20/min) and every spec registers from
+  // the same loopback address. The helper clears the bucket it depends on, so a
+  // spec never fails because of how many customers other specs happened to create.
+  await resetRateLimits(app, [RATE_LIMIT_SCOPES.register]);
   const res = await request(app.getHttpServer())
     .post('/api/v1/auth/customer/register')
     .send({ phone, password: TEST_CUSTOMER_PASSWORD, firstName: 'Test' });

@@ -34,6 +34,7 @@ export class RateLimitGuard implements CanActivate {
     const subject = [
       options.bodyKey ? fieldValue((request.body as Record<string, unknown>)?.[options.bodyKey]) : undefined,
       options.paramKey ? fieldValue(request.params?.[options.paramKey]) : undefined,
+      options.byPrincipal ? fieldValue(subjectClaim(request.headers.authorization)) : undefined,
     ]
       .filter(Boolean)
       .join(':');
@@ -56,6 +57,27 @@ export class RateLimitGuard implements CanActivate {
  * Bucket discriminator from a request field, hashed: the field is often an email,
  * a phone number or a refresh token, none of which belong in a cache key.
  */
+/**
+ * The `sub` claim of the bearer token, read without verifying the signature.
+ *
+ * That is safe here because this is only a bucket label: the access guard still
+ * verifies the token immediately afterwards, so a forged subject buys nothing
+ * except its own rate-limit bucket on a request that is about to be rejected.
+ * Verifying twice would mean doing the crypto before the limiter, which is the
+ * thing the limiter exists to prevent.
+ */
+function subjectClaim(header: string | undefined): string | undefined {
+  const token = header?.split(' ')[1];
+  const payload = token?.split('.')[1];
+  if (!payload) return undefined;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { sub?: unknown };
+    return typeof claims.sub === 'string' ? claims.sub : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function fieldValue(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
   return createHash('sha256').update(value.trim().toLowerCase()).digest('hex').slice(0, 16);

@@ -7,7 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { createAdmin, deleteAdmins, TEST_ADMIN_PASSWORD, TestAdmin } from './support/admin';
-import { deleteCustomers, registerCustomer } from './support/customer';
+import { deleteCustomers, registerCustomer, resetAuthState} from './support/customer';
 
 let app: INestApplication;
 
@@ -28,6 +28,7 @@ describe('Auth and RBAC (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
 
     superAdmin = await createAdmin(app, UserRole.SUPER_ADMIN, 'super');
     catalogAdmin = await createAdmin(app, UserRole.CATALOG, 'catalog');

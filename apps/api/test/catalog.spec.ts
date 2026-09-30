@@ -5,6 +5,7 @@ import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
+import { resetAuthState } from './support/customer';
 import { createAdmin, deleteAdmins } from './support/admin';
 
 let app: INestApplication;
@@ -41,6 +42,7 @@ describe('Catalog admin (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     await cleanup(app.get(PrismaService));
     const admin = await createAdmin(app);
     adminToken = admin.token;

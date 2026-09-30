@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { OptionalAuth } from '../auth/auth.decorators';
+import { ApplyCouponDto } from '../promotions/coupons.dto';
 import { CartContext } from './cart-identity';
 import { AddCartItemDto, UpdateCartItemDto } from './cart.dto';
 import { CartOwner, CartService } from './cart.service';
@@ -35,5 +36,15 @@ export class CartController {
   @Delete('items/:itemId')
   async remove(@CartContext() owner: CartOwner, @Param('itemId') itemId: string) {
     return { data: await this.cart.removeItem(owner, itemId) };
+  }
+
+  @Post('coupon')
+  async applyCoupon(@CartContext() owner: CartOwner, @Body() dto: ApplyCouponDto) {
+    return { data: await this.cart.applyCoupon(owner, dto.code) };
+  }
+
+  @Delete('coupon')
+  async removeCoupon(@CartContext() owner: CartOwner) {
+    return { data: await this.cart.removeCoupon(owner) };
   }
 }

@@ -12,6 +12,7 @@ import {
   RATE_LIMIT_SCOPES,
   registerCustomer,
   resetRateLimits,
+  resetAuthState,
   TEST_CUSTOMER_PASSWORD,
 } from './support/customer';
 
@@ -33,6 +34,7 @@ describe('Customer accounts (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     await cleanup(app.get(PrismaService));
 
     // A published product, so the wishlist has something real to hold.

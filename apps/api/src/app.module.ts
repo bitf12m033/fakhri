@@ -15,6 +15,10 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { ContentModule } from './modules/content/content.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { SearchModule } from './modules/search/search.module';
 
@@ -39,6 +43,10 @@ import { SearchModule } from './modules/search/search.module';
     OrdersModule,
     PaymentsModule,
     ShippingModule,
+    PromotionsModule,
+    ReviewsModule,
+    ContentModule,
+    ReportingModule,
     NotificationsModule,
   ],
 })

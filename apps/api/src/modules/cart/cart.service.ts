@@ -7,6 +7,8 @@ import { AppError, conflict, notFound, sum } from '@fakhri/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { moneyString } from '../catalog/catalog.serialize';
 import { InventoryService } from '../inventory/inventory.service';
+import { CouponLine } from '../promotions/coupon-rules';
+import { CouponsService } from '../promotions/coupons.service';
 import { AddCartItemDto, CART_LIMITS } from './cart.dto';
 
 export const CART_TOKEN_HEADER = 'x-cart-token';
@@ -36,14 +38,26 @@ export interface CartLineView {
   inStock: boolean;
 }
 
+export interface CartCouponView {
+  code: string;
+  type: string;
+  discount: string;
+  freeShipping: boolean;
+}
+
 export interface CartView {
   id: string | null;
   /** Guests must send this back as X-Cart-Token. Null for a customer cart. */
   token: string | null;
   itemCount: number;
   itemsTotal: string;
+  discountTotal: string;
   /** Delivery and tax need an address, so they are quoted at checkout. */
   lines: CartLineView[];
+  /** Null when no code is applied, or when the applied one stopped qualifying. */
+  coupon: CartCouponView | null;
+  /** Why an applied code is no longer counted, so the storefront can say so. */
+  couponIssue: string | null;
   hasPriceChanges: boolean;
   hasUnavailableLines: boolean;
 }
@@ -57,12 +71,13 @@ const lineInclude = {
       price: true,
       isActive: true,
       isAvailableOnOrder: true,
-      product: { select: { name: true, slug: true, status: true } },
+      productId: true,
+      product: { select: { id: true, name: true, slug: true, status: true, categoryId: true, brandId: true } },
     },
   },
 } satisfies Prisma.CartItemInclude;
 
-type CartWithLines = Prisma.CartGetPayload<{ include: { items: { include: typeof lineInclude } } }>;
+export type CartWithLines = Prisma.CartGetPayload<{ include: { items: { include: typeof lineInclude } } }>;
 
 /**
  * Server-side cart (REQ-18). Prices are snapshotted when an item is added and
@@ -73,6 +88,7 @@ export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly coupons: CouponsService,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
@@ -124,6 +140,22 @@ export class CartService {
     const deleted = await this.prisma.cartItem.deleteMany({ where: { id: itemId, cartId: cart.id } });
     if (deleted.count === 0) throw notFound('Cart item');
     return this.touch(cart.id, owner);
+  }
+
+  /** Apply a code to the cart (REQ-22). One code per cart, validated on the spot. */
+  async applyCoupon(owner: CartOwner, code: string): Promise<CartView> {
+    const cart = await this.require(owner);
+    if (cart.items.length === 0) throw new AppError('CART_EMPTY', 'Add something to your cart first');
+    // Validate before storing, so an invalid code never sticks to the cart.
+    const outcome = await this.coupons.preview(code, couponLinesOf(cart), owner.customerId);
+    await this.prisma.cart.update({ where: { id: cart.id }, data: { couponId: outcome.couponId } });
+    return this.view(owner);
+  }
+
+  async removeCoupon(owner: CartOwner): Promise<CartView> {
+    const cart = await this.require(owner);
+    await this.prisma.cart.update({ where: { id: cart.id }, data: { couponId: null } });
+    return this.view(owner);
   }
 
   /**
@@ -202,15 +234,53 @@ export class CartService {
       };
     });
 
+    const itemsTotal = sum(lines.map((line) => line.subtotal ?? '0')).toFixed(2);
+    const applied = await this.previewCoupon(cart);
+
     return {
       id: cart.id,
       token: cart.token,
       itemCount: lines.reduce((total, line) => total + line.quantity, 0),
-      itemsTotal: sum(lines.map((line) => line.subtotal ?? '0')).toFixed(2),
+      itemsTotal,
+      discountTotal: applied.coupon?.discount ?? '0.00',
       lines,
+      coupon: applied.coupon,
+      couponIssue: applied.issue,
       hasPriceChanges: lines.some((line) => line.priceChanged),
       hasUnavailableLines: lines.some((line) => !line.inStock),
     };
+  }
+
+  /**
+   * A code applied earlier can stop qualifying: it expires, the cart drops below
+   * the minimum, or the eligible product leaves. That is reported rather than
+   * thrown, so the cart still loads and the storefront can explain why.
+   */
+  private async previewCoupon(cart: CartWithLines): Promise<{ coupon: CartCouponView | null; issue: string | null }> {
+    if (!cart.couponId) return { coupon: null, issue: null };
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id: cart.couponId },
+      select: { code: true },
+    });
+    if (!coupon) return { coupon: null, issue: 'That coupon no longer exists' };
+    try {
+      const outcome = await this.coupons.preview(
+        coupon.code,
+        couponLinesOf(cart),
+        cart.customerId ?? undefined,
+      );
+      return {
+        coupon: {
+          code: outcome.code,
+          type: outcome.type,
+          discount: outcome.discount,
+          freeShipping: outcome.freeShipping,
+        },
+        issue: null,
+      };
+    } catch (error) {
+      return { coupon: null, issue: error instanceof AppError ? error.message : 'This coupon cannot be applied' };
+    }
   }
 
   private async touch(cartId: string, owner: CartOwner): Promise<CartView> {
@@ -283,10 +353,23 @@ function emptyCart(): CartView {
     token: null,
     itemCount: 0,
     itemsTotal: '0.00',
+    discountTotal: '0.00',
     lines: [],
+    coupon: null,
+    couponIssue: null,
     hasPriceChanges: false,
     hasUnavailableLines: false,
   };
+}
+
+/** Cart lines in the shape the coupon rules evaluate. */
+export function couponLinesOf(cart: CartWithLines): CouponLine[] {
+  return cart.items.map((item) => ({
+    productId: item.variant.product.id,
+    categoryId: item.variant.product.categoryId,
+    brandId: item.variant.product.brandId,
+    subtotal: item.unitPrice.mul(item.quantity).toFixed(2),
+  }));
 }
 
 /** Exported for the checkout service, which validates the same way. */

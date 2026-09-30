@@ -33,6 +33,12 @@ export interface RateLimitOptions {
   bodyKey?: string;
   /** Also bucket by this route parameter, e.g. `paymentId`. */
   paramKey?: string;
+  /**
+   * Bucket per authenticated account rather than per address. Use for limits that
+   * protect against a signed-in user doing something too often, where a shared
+   * carrier NAT address would otherwise punish unrelated customers.
+   */
+  byPrincipal?: boolean;
   /** Env override for `limit`, so operators can tighten a route without a deploy. */
   configKey?: 'RATE_LIMIT_AUTH_PER_MINUTE' | 'OTP_REQUESTS_PER_HOUR';
 }

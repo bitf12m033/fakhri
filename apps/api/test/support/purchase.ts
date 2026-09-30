@@ -114,6 +114,8 @@ export async function cleanupPurchase(prisma: PrismaService, prefix: string): Pr
   }
 
   await prisma.product.deleteMany({ where: { slug: { startsWith: prefix } } });
+  // Category.parent is ON DELETE RESTRICT, so break the links first.
+  await prisma.category.updateMany({ where: { slug: { startsWith: prefix } }, data: { parentId: null } });
   await prisma.category.deleteMany({ where: { slug: { startsWith: prefix } } });
   await prisma.brand.deleteMany({ where: { slug: { startsWith: prefix } } });
   await prisma.warehouse.deleteMany({ where: { code: { startsWith: prefix.toUpperCase() } } });

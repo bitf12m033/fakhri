@@ -7,7 +7,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { MockPaymentGateway } from '../src/modules/payments/gateway';
 import { deleteAdmins } from './support/admin';
-import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits } from './support/customer';
+import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits, resetAuthState} from './support/customer';
 import { cleanupPurchase, PurchaseFixture, seedPurchaseFixture } from './support/purchase';
 
 let app: INestApplication;
@@ -25,6 +25,7 @@ describe('Payments (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     gateway = app.get(MockPaymentGateway);
     await cleanupPurchase(app.get(PrismaService), run);
     fx = await seedPurchaseFixture(app, run, { onHand: 40 });

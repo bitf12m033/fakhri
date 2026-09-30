@@ -8,7 +8,7 @@ import { configureApp } from '../src/bootstrap';
 import { OutboxDispatcher } from '../src/outbox/outbox.dispatcher';
 import { NotificationsService } from '../src/modules/notifications/notifications.service';
 import { deleteAdmins } from './support/admin';
-import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits } from './support/customer';
+import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits, resetAuthState} from './support/customer';
 import { cleanupPurchase, PurchaseFixture, seedPurchaseFixture, stockOf } from './support/purchase';
 
 let app: INestApplication;
@@ -25,6 +25,7 @@ describe('Fulfilment (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     const prisma = app.get(PrismaService);
     await cleanupPurchase(prisma, run);
     // Residue from earlier runs: the dispatcher works oldest-first, so a backlog

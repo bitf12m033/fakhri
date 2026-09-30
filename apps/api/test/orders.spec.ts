@@ -7,7 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { createAdmin, deleteAdmins } from './support/admin';
-import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits } from './support/customer';
+import { deleteCustomers, RATE_LIMIT_SCOPES, registerCustomer, resetRateLimits, resetAuthState} from './support/customer';
 import { cleanupPurchase, PurchaseFixture, seedPurchaseFixture, stockOf } from './support/purchase';
 
 let app: INestApplication;
@@ -27,6 +27,7 @@ describe('Order lifecycle (e2e)', () => {
     app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
+    await resetAuthState(app);
     await cleanupPurchase(app.get(PrismaService), run);
     fx = await seedPurchaseFixture(app, run, { onHand: 10 });
     adminIds.push(fx.adminId);

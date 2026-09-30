@@ -15,9 +15,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { OUTBOX_EVENTS } from '../../outbox/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
-import { CartOwner, CartService } from '../cart/cart.service';
+import { CartOwner, CartService, couponLinesOf } from '../cart/cart.service';
 import { InventoryService, ReservationLine } from '../inventory/inventory.service';
 import { normalizePhone } from '../customers/phone';
+import { CouponOutcome } from '../promotions/coupon-rules';
+import { CouponsService } from '../promotions/coupons.service';
 import { orderInclude, OrderView, serializeOrder } from '../orders/order.serialize';
 import { CheckoutAddressDto, CheckoutDto } from './checkout.dto';
 import { quoteDelivery } from './delivery-fee';
@@ -50,6 +52,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly carts: CartService,
     private readonly inventory: InventoryService,
+    private readonly coupons: CouponsService,
     private readonly idempotency: IdempotencyService,
     private readonly outbox: OutboxService,
     private readonly audit: AuditService,
@@ -137,15 +140,20 @@ export class CheckoutService {
       province: address?.province,
       weightKg: weightKg.toFixed(3),
     });
+
+    // The coupon is re-evaluated here, not trusted from the cart: prices, stock
+    // and eligibility can all have moved since it was applied (REQ-22).
+    const coupon = await this.resolveCoupon(cart, context.customerId);
     const totals = computeTotals({
       itemsTotal: itemsTotalOf(lines),
-      deliveryFee: delivery.fee,
+      discountTotal: coupon?.outcome.discount,
+      deliveryFee: coupon?.outcome.freeShipping ? '0.00' : delivery.fee,
       taxRatePercent: this.config.get('TAX_RATE_PERCENT', { infer: true }),
     });
 
     for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
       try {
-        return await this.commit(context, dto, cart.id, lines, reservations, totals, address, contact);
+        return await this.commit(context, dto, cart.id, lines, reservations, totals, address, contact, coupon);
       } catch (error) {
         if (attempt < REF_ATTEMPTS - 1 && isRefCollision(error)) continue;
         throw error;
@@ -163,6 +171,7 @@ export class CheckoutService {
     totals: ReturnType<typeof computeTotals>,
     address: CheckoutAddressDto | null,
     contact: { phone: string; email?: string },
+    coupon: { couponId: string; outcome: CouponOutcome } | null,
   ): Promise<OrderView> {
     const refNumber = newOrderRef();
 
@@ -179,6 +188,7 @@ export class CheckoutService {
           guestPhone: context.customerId ? undefined : contact.phone,
           guestEmail: context.customerId ? undefined : contact.email,
           deliveryType: dto.deliveryType,
+          couponId: coupon?.couponId,
           addressSnapshot: address ? (address as unknown as Prisma.InputJsonValue) : undefined,
           status: OrderStatus.PENDING,
           paymentStatus:
@@ -228,6 +238,16 @@ export class CheckoutService {
 
       // Reserve inside the same transaction: an out-of-stock line rolls the order back.
       await this.inventory.reserveForOrder(tx, created.id, reservations, context.customerId);
+      // Redemption is recorded here too, under the coupon's row lock, so the
+      // usage caps hold even when two checkouts race for the last one.
+      if (coupon) {
+        await this.coupons.redeem(tx, {
+          couponId: coupon.couponId,
+          orderId: created.id,
+          customerId: context.customerId,
+          discount: coupon.outcome.discount,
+        });
+      }
       await this.carts.close(tx, cartId);
 
       await this.audit.log(
@@ -255,6 +275,25 @@ export class CheckoutService {
     });
 
     return serializeOrder(order);
+  }
+
+  /**
+   * The code stored on the cart, evaluated fresh. A code that no longer qualifies
+   * fails the checkout rather than silently dropping: the customer was shown a
+   * total and should be told it changed.
+   */
+  private async resolveCoupon(
+    cart: { couponId: string | null; items: unknown[] } & Parameters<typeof couponLinesOf>[0],
+    customerId?: string,
+  ): Promise<{ couponId: string; outcome: CouponOutcome } | null> {
+    if (!cart.couponId) return null;
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id: cart.couponId },
+      select: { code: true },
+    });
+    if (!coupon) throw new AppError('COUPON_INVALID', 'The coupon on your cart no longer exists');
+    const outcome = await this.coupons.preview(coupon.code, couponLinesOf(cart), customerId);
+    return { couponId: cart.couponId, outcome };
   }
 
   /** Guests must supply a phone; customers inherit theirs from the account. */
