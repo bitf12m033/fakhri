@@ -18,13 +18,20 @@ function arg(name: string): string | undefined {
 
 async function main(): Promise<void> {
   const email = arg('email')?.trim().toLowerCase();
-  const name = arg('name') ?? email;
   const role = (arg('role') ?? UserRole.SUPER_ADMIN) as UserRole;
   const password = process.env.ADMIN_PASSWORD ?? arg('password');
 
   if (!email || !password) {
-    throw new Error('Usage: --email <email> --name <name> [--role ROLE] (password via ADMIN_PASSWORD or --password)');
+    const missing = [!email && '--email', !password && 'a password'].filter(Boolean);
+    throw new Error(
+      `Missing ${missing.join(' and ')}.\n` +
+        'Usage: ADMIN_PASSWORD=<password> npm run admin:create -w apps/api -- \\\n' +
+        '         --email <email> --name <name> [--role SUPER_ADMIN]\n' +
+        `Roles: ${Object.values(UserRole).join(', ')}\n` +
+        'The password comes from ADMIN_PASSWORD so it stays out of your shell history; --password also works.',
+    );
   }
+  const name = arg('name') ?? email;
   if (!Object.values(UserRole).includes(role)) {
     throw new Error(`Unknown role ${role}. One of: ${Object.values(UserRole).join(', ')}`);
   }
@@ -34,8 +41,8 @@ async function main(): Promise<void> {
     const passwordHash = await new PasswordService().hash(password);
     const admin = await prisma.adminUser.upsert({
       where: { email },
-      create: { email, name: name!, role, passwordHash },
-      update: { name: name!, role, passwordHash, isActive: true },
+      create: { email, name, role, passwordHash },
+      update: { name, role, passwordHash, isActive: true },
     });
     // Rotating the password must not leave old sessions alive.
     await prisma.refreshToken.updateMany({
