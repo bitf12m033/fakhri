@@ -31,6 +31,8 @@ export interface RateLimitOptions {
   windowSeconds: number;
   /** Also bucket by this body field, e.g. `phone`, so one IP cannot brute force many accounts. */
   bodyKey?: string;
+  /** Also bucket by this route parameter, e.g. `paymentId`. */
+  paramKey?: string;
   /** Env override for `limit`, so operators can tighten a route without a deploy. */
   configKey?: 'RATE_LIMIT_AUTH_PER_MINUTE' | 'OTP_REQUESTS_PER_HOUR';
 }

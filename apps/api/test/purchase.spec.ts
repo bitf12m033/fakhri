@@ -23,7 +23,7 @@ describe('Cart and checkout (e2e)', () => {
     process.env.DATABASE_URL ??= 'postgresql://fakhri:fakhri_dev@localhost:5432/fakhri';
     process.env.REDIS_URL ??= 'redis://localhost:6379';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
     await cleanupPurchase(app.get(PrismaService), run);
@@ -294,13 +294,14 @@ describe('Cart and checkout (e2e)', () => {
     expect(badProvince.status).toBe(400);
     expect(badProvince.body.error.details.supported).toBeTruthy();
 
-    // Online methods arrive with the gateway in 3.6.
-    const card = await checkout(token, `${run}-key-card`, {
+    // Bank transfer has no automatic reconciliation, so checkout still refuses it.
+    // Card and wallet methods became valid in 3.6 and are covered in payments.spec.
+    const bankTransfer = await checkout(token, `${run}-key-bank`, {
       deliveryType: 'STORE_PICKUP',
-      paymentMethod: 'CARD',
+      paymentMethod: 'BANK_TRANSFER',
       guestPhone: '03001234567',
     });
-    expect(card.status).toBe(400);
+    expect(bankTransfer.status).toBe(400);
   });
 
   it('sells an available-on-order variant with no stock at all (REQ-28)', async () => {

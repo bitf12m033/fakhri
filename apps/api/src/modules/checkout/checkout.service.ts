@@ -13,6 +13,7 @@ import { AppConfig } from '@fakhri/config';
 import { AppError, conflict, invalidInput, notFound } from '@fakhri/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { OUTBOX_EVENTS } from '../../outbox/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import { CartOwner, CartService } from '../cart/cart.service';
 import { InventoryService, ReservationLine } from '../inventory/inventory.service';
@@ -23,7 +24,6 @@ import { quoteDelivery } from './delivery-fee';
 import { IdempotencyService } from './idempotency.service';
 import { computeTotals, itemsTotalOf, priceLine, PricedLine } from './pricing';
 
-export const ORDER_CREATED = 'ORDER_CREATED';
 const REF_ATTEMPTS = 3;
 
 interface CheckoutContext extends CartOwner {
@@ -243,7 +243,7 @@ export class CheckoutService {
       );
       await this.outbox.enqueue(
         {
-          type: ORDER_CREATED,
+          type: OUTBOX_EVENTS.ORDER_CREATED,
           aggregateType: 'Order',
           aggregateId: created.id,
           payload: { orderId: created.id, refNumber, grandTotal: totals.grandTotal },

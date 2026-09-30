@@ -38,7 +38,7 @@ describe('Catalog admin (e2e)', () => {
     process.env.DATABASE_URL ??= 'postgresql://fakhri:fakhri_dev@localhost:5432/fakhri';
     process.env.REDIS_URL ??= 'redis://localhost:6379';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
     await cleanup(app.get(PrismaService));
@@ -210,9 +210,9 @@ describe('Catalog admin (e2e)', () => {
     expect(listed.some((item: { id: string }) => item.id === draft.id)).toBe(true);
 
     const blockedCategory = await request(app.getHttpServer()).delete(`/api/v1/admin/categories/${ids.child}`).set('Authorization', `Bearer ${adminToken}`);
-    expect(blockedCategory.status).toBe(409);
+    expect(blockedCategory.status, `child=${ids.child} body=${JSON.stringify(blockedCategory.body)}`).toBe(409);
     const blockedOption = await request(app.getHttpServer()).delete(`/api/v1/admin/attributes/${ids.energy}/options/${ids.inverter}`).set('Authorization', `Bearer ${adminToken}`);
-    expect(blockedOption.status).toBe(409);
+    expect(blockedOption.status, JSON.stringify(blockedOption.body)).toBe(409);
   });
 });
 

@@ -11,8 +11,17 @@ import {
 } from 'class-validator';
 import { DeliveryType, PaymentMethod } from '@fakhri/prisma';
 
-/** Online methods arrive with the gateway adapter in increment 3.6. */
-export const SUPPORTED_PAYMENT_METHODS = [PaymentMethod.COD] as const;
+/**
+ * COD plus the methods the mock gateway can settle (increment 3.6). BANK_TRANSFER
+ * is left out: nothing reconciles it automatically, so an operator would have to
+ * mark it paid by hand, which is a 3.7 reporting concern.
+ */
+export const SUPPORTED_PAYMENT_METHODS = [
+  PaymentMethod.COD,
+  PaymentMethod.CARD,
+  PaymentMethod.JAZZCASH,
+  PaymentMethod.EASYPAISA,
+] as const;
 
 export class CheckoutAddressDto {
   @IsString()

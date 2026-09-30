@@ -4,7 +4,8 @@ import { buildMeta, conflict, normalizePagination, notFound } from '@fakhri/shar
 import { AuditService } from '../../../audit/audit.service';
 import { OutboxService } from '../../../outbox/outbox.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CATALOG_LIMITS, PRODUCT_PUBLISHED } from '../catalog.constants';
+import { OUTBOX_EVENTS } from '../../../outbox/event-types';
+import { CATALOG_LIMITS } from '../catalog.constants';
 import { inTx, invalid } from '../catalog.errors';
 import {
   iso,
@@ -452,7 +453,7 @@ export class ProductsService {
   private async publish(tx: Prisma.TransactionClient, productId: string, slug: string): Promise<void> {
     await this.outbox.enqueue(
       {
-        type: PRODUCT_PUBLISHED,
+        type: OUTBOX_EVENTS.PRODUCT_PUBLISHED,
         aggregateType: 'Product',
         aggregateId: productId,
         payload: { productId, slug, publishedAt: new Date().toISOString() },

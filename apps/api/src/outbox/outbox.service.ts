@@ -42,4 +42,19 @@ export class OutboxService {
   async pendingCount(): Promise<number> {
     return this.prisma.outboxEvent.count({ where: { status: OutboxStatus.PENDING } });
   }
+
+  /** What is waiting, delivered and stuck, for the admin view (increment 3.6). */
+  async summary(): Promise<{ pending: number; published: number; failed: number; oldestPendingAt: string | null }> {
+    const [pending, published, failed, oldest] = await Promise.all([
+      this.prisma.outboxEvent.count({ where: { status: OutboxStatus.PENDING } }),
+      this.prisma.outboxEvent.count({ where: { status: OutboxStatus.PUBLISHED } }),
+      this.prisma.outboxEvent.count({ where: { status: OutboxStatus.FAILED } }),
+      this.prisma.outboxEvent.findFirst({
+        where: { status: OutboxStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      }),
+    ]);
+    return { pending, published, failed, oldestPendingAt: oldest?.createdAt.toISOString() ?? null };
+  }
 }

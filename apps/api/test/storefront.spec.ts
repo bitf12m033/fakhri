@@ -47,7 +47,7 @@ describe('Storefront reads and search (e2e)', () => {
     process.env.DATABASE_URL ??= 'postgresql://fakhri:fakhri_dev@localhost:5432/fakhri';
     process.env.REDIS_URL ??= 'redis://localhost:6379';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
     const prisma = app.get(PrismaService);

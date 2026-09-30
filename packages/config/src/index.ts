@@ -29,6 +29,23 @@ const EnvSchema = z.object({
   // market, so the default adds no separate tax line; set a rate to break it out.
   TAX_RATE_PERCENT: z.coerce.number().min(0).max(100).default(0),
   CART_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+  // Payments, shipping and notifications (increment 3.6).
+  // The mock gateway stands in for a real provider, so its secret carries a dev
+  // default; the real adapter's credentials will have none.
+  PAYMENT_MOCK_SECRET: z.string().min(16).default('mock-gateway-dev-secret-0000'),
+  PAYMENT_RETURN_URL: z.string().default('http://localhost:3001/checkout/return'),
+  OUTBOX_POLL_MS: z.coerce.number().int().min(0).default(5000),
+  OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(20),
+  NOTIFICATIONS_CHANNEL: z.enum(['console', 'none']).default('console'),
+
+  // Printed on invoices (REQ-31/REQ-40: FBR fields).
+  SELLER_NAME: z.string().default('Fakhri Electronics'),
+  SELLER_NTN: z.string().default('0000000-0'),
+  SELLER_STRN: z.string().optional(),
+  SELLER_ADDRESS: z.string().default('Lahore, Pakistan'),
+  SELLER_PHONE: z.string().default('+924200000000'),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

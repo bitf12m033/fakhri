@@ -18,7 +18,7 @@ describe('Health (e2e)', () => {
     process.env.REDIS_URL ??= 'redis://localhost:6379';
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ rawBody: true });
     await configureApp(app);
     await app.init();
   });

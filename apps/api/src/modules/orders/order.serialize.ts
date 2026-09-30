@@ -1,4 +1,11 @@
-import { DeliveryType, OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@fakhri/prisma';
+import {
+  DeliveryType,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+  ShipmentStatus,
+} from '@fakhri/prisma';
 import { moneyString } from '../catalog/catalog.serialize';
 
 export interface OrderItemView {
@@ -24,7 +31,13 @@ export interface OrderView {
   items: OrderItemView[];
   address: Record<string, unknown> | null;
   customerNote: string | null;
-  payment: { method: PaymentMethod; status: PaymentStatus; amount: string | null } | null;
+  payment: { id: string; method: PaymentMethod; status: PaymentStatus; amount: string | null } | null;
+  shipment: {
+    carrier: string | null;
+    trackingCode: string | null;
+    status: ShipmentStatus;
+    events: { status: ShipmentStatus; location: string | null; note: string | null; at: string }[];
+  } | null;
   history: { status: OrderStatus; note: string | null; at: string }[];
   placedAt: string;
   updatedAt: string;
@@ -53,8 +66,14 @@ type OrderRow = {
     unitPrice: Prisma.Decimal;
     subtotal: Prisma.Decimal;
   }[];
-  payments: { method: PaymentMethod; status: PaymentStatus; amount: Prisma.Decimal }[];
+  payments: { id: string; method: PaymentMethod; status: PaymentStatus; amount: Prisma.Decimal }[];
   history: { status: OrderStatus; note: string | null; createdAt: Date }[];
+  shipment?: {
+    carrier: string | null;
+    trackingCode: string | null;
+    status: ShipmentStatus;
+    events: { status: ShipmentStatus; location: string | null; note: string | null; createdAt: Date }[];
+  } | null;
 };
 
 /** What a customer sees. Internal notes and actor ids stay out. */
@@ -82,7 +101,20 @@ export function serializeOrder(row: OrderRow): OrderView {
     address: readAddress(row.addressSnapshot),
     customerNote: row.customerNote,
     payment: payment
-      ? { method: payment.method, status: payment.status, amount: moneyString(payment.amount) }
+      ? { id: payment.id, method: payment.method, status: payment.status, amount: moneyString(payment.amount) }
+      : null,
+    shipment: row.shipment
+      ? {
+          carrier: row.shipment.carrier,
+          trackingCode: row.shipment.trackingCode,
+          status: row.shipment.status,
+          events: row.shipment.events.map((event) => ({
+            status: event.status,
+            location: event.location,
+            note: event.note,
+            at: event.createdAt.toISOString(),
+          })),
+        }
       : null,
     history: row.history.map((entry) => ({
       status: entry.status,
@@ -98,6 +130,7 @@ export const orderInclude = {
   items: { orderBy: { sku: 'asc' as const } },
   payments: { orderBy: { createdAt: 'asc' as const } },
   history: { orderBy: { createdAt: 'asc' as const } },
+  shipment: { include: { events: { orderBy: { createdAt: 'asc' as const } } } },
 } satisfies Prisma.OrderInclude;
 
 function readAddress(value: Prisma.JsonValue | null): Record<string, unknown> | null {

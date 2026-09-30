@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query 
 import { UserRole } from '@fakhri/prisma';
 import { CustomerRoute, Roles } from '../auth/auth.decorators';
 import { CurrentCustomer } from '../auth/principal';
+import { DocumentsService } from './documents.service';
 import { AdminListOrdersQueryDto, ListOrdersQueryDto, TransitionOrderDto } from './orders.dto';
 import { OrdersService } from './orders.service';
 
@@ -41,7 +42,10 @@ export class CustomerOrdersController {
 @Controller('admin/orders')
 @Roles(UserRole.ORDERS)
 export class AdminOrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly documents: DocumentsService,
+  ) {}
 
   @Get()
   async list(@Query() query: AdminListOrdersQueryDto) {
@@ -57,5 +61,15 @@ export class AdminOrdersController {
   @Patch(':id/status')
   async transition(@Param('id') id: string, @Body() dto: TransitionOrderDto) {
     return { data: await this.orders.transitionByAdmin(id, dto) };
+  }
+
+  @Get(':id/invoice')
+  async invoice(@Param('id') id: string) {
+    return { data: await this.documents.invoice(id) };
+  }
+
+  @Get(':id/packing-list')
+  async packingList(@Param('id') id: string) {
+    return { data: await this.documents.packingList(id) };
   }
 }

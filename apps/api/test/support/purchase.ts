@@ -101,6 +101,9 @@ export async function cleanupPurchase(prisma: PrismaService, prefix: string): Pr
     const orderIds = orders.map((order) => order.id);
     if (orderIds.length > 0) {
       await prisma.payment.deleteMany({ where: { orderId: { in: orderIds } } });
+      // Shipment references Order with ON DELETE RESTRICT; its events cascade.
+      await prisma.shipment.deleteMany({ where: { orderId: { in: orderIds } } });
+      await prisma.outboxEvent.deleteMany({ where: { aggregateId: { in: orderIds } } });
       await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
     }
     await prisma.stockLedger.deleteMany({ where: { variantId: { in: variantIds } } });

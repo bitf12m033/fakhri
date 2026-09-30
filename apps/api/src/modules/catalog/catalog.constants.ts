@@ -6,4 +6,3 @@ export const CATALOG_LIMITS = {
   imagesPerProduct: 40,
 } as const;
 
-export const PRODUCT_PUBLISHED = 'PRODUCT_PUBLISHED';

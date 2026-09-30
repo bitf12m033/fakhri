@@ -61,6 +61,9 @@ services:
       # Dev-only value. Real deployments inject this from the secret store.
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-insecure-secret-change-me-0000}
       JWT_ISSUER: fakhri-api
+      # Dev-only stand-in for a real gateway secret (increment 3.6).
+      PAYMENT_MOCK_SECRET: ${PAYMENT_MOCK_SECRET:-mock-gateway-dev-secret-0000}
+      OUTBOX_POLL_MS: 5000
     depends_on:
       postgres:
         condition: service_healthy

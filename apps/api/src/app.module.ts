@@ -12,7 +12,10 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 import { SearchModule } from './modules/search/search.module';
 
 @Module({
@@ -34,6 +37,9 @@ import { SearchModule } from './modules/search/search.module';
     CartModule,
     CheckoutModule,
     OrdersModule,
+    PaymentsModule,
+    ShippingModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

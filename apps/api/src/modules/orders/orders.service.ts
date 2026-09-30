@@ -3,6 +3,7 @@ import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@fakhri/prism
 import { AppError, buildMeta, normalizePagination, notFound } from '@fakhri/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { OUTBOX_EVENTS } from '../../outbox/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import { currentActor } from '../../common/actor-context';
 import { moneyString } from '../catalog/catalog.serialize';
@@ -11,7 +12,6 @@ import { AdminListOrdersQueryDto, ListOrdersQueryDto, TransitionOrderDto } from 
 import { assertTransition, canCustomerCancel, consumesStock, releasesStock } from './order-state';
 import { orderInclude, OrderView, serializeOrder } from './order.serialize';
 
-export const ORDER_STATUS_CHANGED = 'ORDER_STATUS_CHANGED';
 
 /**
  * Order lifecycle (REQ-24). Every transition is validated against the state
@@ -165,7 +165,23 @@ export class OrdersService {
     note: string | undefined,
     actor: { actorType: 'ADMIN' | 'CUSTOMER' | 'SYSTEM'; actorId?: string },
   ): Promise<OrderView> {
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction((tx) => this.transitionWithin(tx, orderId, to, note, actor));
+    return serializeOrder(updated);
+  }
+
+  /**
+   * The same transition, joined to a caller's transaction. Payments and shipments
+   * advance an order as part of their own atomic work, so they need this rather
+   * than a second transaction that could commit half the change.
+   */
+  async transitionWithin(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    to: OrderStatus,
+    note: string | undefined,
+    actor: { actorType: 'ADMIN' | 'CUSTOMER' | 'SYSTEM'; actorId?: string },
+  ) {
+    {
       await tx.$executeRaw(Prisma.sql`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`);
       const current = await tx.order.findUniqueOrThrow({
         where: { id: orderId },
@@ -217,7 +233,7 @@ export class OrdersService {
       );
       await this.outbox.enqueue(
         {
-          type: ORDER_STATUS_CHANGED,
+          type: OUTBOX_EVENTS.ORDER_STATUS_CHANGED,
           aggregateType: 'Order',
           aggregateId: orderId,
           payload: { orderId, refNumber: current.refNumber, from: current.status, to },
@@ -226,9 +242,7 @@ export class OrdersService {
       );
 
       return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: orderInclude });
-    });
-
-    return serializeOrder(updated);
+    }
   }
 }
 

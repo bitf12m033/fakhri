@@ -31,7 +31,12 @@ export class RateLimitGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>();
     const route = `${context.getClass().name}.${context.getHandler().name}`;
-    const subject = options.bodyKey ? bodyValue(request, options.bodyKey) : undefined;
+    const subject = [
+      options.bodyKey ? fieldValue((request.body as Record<string, unknown>)?.[options.bodyKey]) : undefined,
+      options.paramKey ? fieldValue(request.params?.[options.paramKey]) : undefined,
+    ]
+      .filter(Boolean)
+      .join(':');
     const key = `rl:${route}:${request.ip ?? 'unknown'}${subject ? `:${subject}` : ''}`;
 
     const limit = options.configKey ? this.config.get(options.configKey, { infer: true }) : options.limit;
@@ -51,9 +56,7 @@ export class RateLimitGuard implements CanActivate {
  * Bucket discriminator from a request field, hashed: the field is often an email,
  * a phone number or a refresh token, none of which belong in a cache key.
  */
-function bodyValue(request: Request, field: string): string | undefined {
-  const body = request.body as Record<string, unknown> | undefined;
-  const value = body?.[field];
+function fieldValue(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length === 0) return undefined;
   return createHash('sha256').update(value.trim().toLowerCase()).digest('hex').slice(0, 16);
 }

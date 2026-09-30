@@ -22,9 +22,25 @@ export default defineConfig({
     include: ['test/**/*.spec.ts'],
     setupFiles: ['test/setup.ts'],
     // e2e specs contend on row locks and run argon2 hashes; 5s is too tight.
-    testTimeout: 20_000,
+    testTimeout: 30_000,
     hookTimeout: 120_000,
-    // Four files at a time keeps total database connections inside max_connections.
-    poolOptions: { threads: { maxThreads: 4, minThreads: 1 } },
+    /*
+     * One spec file at a time. These are integration tests against a single
+     * Postgres and Redis: the oversell suite creates lock contention on purpose,
+     * and specs assert on shared rate-limit state. Running them concurrently
+     * produced timeouts and cross-file interference in specs that were not even
+     * under test. Sequential costs a few seconds of wall clock and buys a suite
+     * whose result means something.
+     */
+    fileParallelism: false,
+    /*
+     * Forks, not threads: each spec file boots a Nest app with its own database
+     * pool, Redis client and timers. In a shared worker thread, teardown from one
+     * file could still be settling while the next file ran, which showed up as
+     * impossible results (a 404 from a route that exists). A process per file
+     * makes teardown absolute.
+     */
+    pool: 'forks',
+    poolOptions: { forks: { maxForks: 1, minForks: 1 } },
   },
 });
