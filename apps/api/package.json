@@ -7,7 +7,7 @@
     "typecheck": "npm run build -w @fakhri/shared && npm run build -w @fakhri/config && npm run build -w @fakhri/prisma && tsc --noEmit -p tsconfig.json",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "admin:create": "tsx src/scripts/create-admin.ts",
+    "admin:create": "tsx --env-file-if-exists=.env src/scripts/create-admin.ts",
     "test": "vitest run"
   },
   "dependencies": {

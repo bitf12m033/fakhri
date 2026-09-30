@@ -101,8 +101,10 @@ Envelope and error contract are unchanged. A locked account or a tripped limit i
 
 - **First admin.** Every `/admin` route needs an admin, so a fresh deployment runs once:
   `ADMIN_PASSWORD=… npm run admin:create -w apps/api -- --email you@example.com --name "You" --role SUPER_ADMIN`
-  (in an image: `node dist/scripts/create-admin.js …`). The password is read from `ADMIN_PASSWORD` so it
-  stays out of the process list. Re-running rotates the password and revokes that admin's sessions.
+  The npm script loads `apps/api/.env` itself (`--env-file-if-exists`); in an image the environment already
+  carries the values, so `node dist/scripts/create-admin.js …` is enough. The password is read from
+  `ADMIN_PASSWORD` so it stays out of the process list. Re-running rotates the password and revokes that
+  admin's sessions.
 - **`JWT_ACCESS_SECRET` has no default**: a deployment without it fails to boot rather than signing with a
   known key. Generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
   Rotating it invalidates every access token immediately; refresh tokens survive, so clients recover on refresh.

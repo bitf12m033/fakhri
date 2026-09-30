@@ -6,7 +6,10 @@
  *
  * The password is read from ADMIN_PASSWORD when set, so it stays out of the
  * process list and shell history; --password is accepted for convenience.
- * In a built image: node dist/scripts/create-admin.js --email ...
+ *
+ * The npm script loads apps/api/.env via --env-file-if-exists. In a built image
+ * the environment already carries the values:
+ *   node dist/scripts/create-admin.js --email ...
  */
 import { PrismaClient, UserRole } from '@fakhri/prisma';
 import { PasswordService } from '../modules/auth/password.service';
@@ -32,6 +35,9 @@ async function main(): Promise<void> {
     );
   }
   const name = arg('name') ?? email;
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set. Copy apps/api/.env.example to apps/api/.env, or export it.');
+  }
   if (!Object.values(UserRole).includes(role)) {
     throw new Error(`Unknown role ${role}. One of: ${Object.values(UserRole).join(', ')}`);
   }
