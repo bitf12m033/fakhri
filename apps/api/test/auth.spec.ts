@@ -85,7 +85,10 @@ describe('Auth and RBAC (e2e)', () => {
     const admin = await createAdmin(app, UserRole.SUPER_ADMIN, 'lockout');
     adminIds.push(admin.id);
 
-    const unknown = await login('nobody-e2e-admin-@example.test', 'whatever123');
+    // Unique per run: the lockout counter for an email lives 15 minutes in Redis,
+    // so a constant address would still be locked from the previous run.
+    const unknownEmail = `nobody-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.test`;
+    const unknown = await login(unknownEmail, 'whatever123');
     const wrong = await login(admin.email, 'wrong-password-1');
     expect(unknown.status).toBe(401);
     expect(wrong.status).toBe(401);

@@ -20,5 +20,11 @@ export default defineConfig({
     globals: false,
     environment: 'node',
     include: ['test/**/*.spec.ts'],
+    setupFiles: ['test/setup.ts'],
+    // e2e specs contend on row locks and run argon2 hashes; 5s is too tight.
+    testTimeout: 20_000,
+    hookTimeout: 120_000,
+    // Four files at a time keeps total database connections inside max_connections.
+    poolOptions: { threads: { maxThreads: 4, minThreads: 1 } },
   },
 });

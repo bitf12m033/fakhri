@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -46,8 +47,13 @@ export class RateLimitGuard implements CanActivate {
   }
 }
 
+/**
+ * Bucket discriminator from a request field, hashed: the field is often an email,
+ * a phone number or a refresh token, none of which belong in a cache key.
+ */
 function bodyValue(request: Request, field: string): string | undefined {
   const body = request.body as Record<string, unknown> | undefined;
   const value = body?.[field];
-  return typeof value === 'string' ? value.slice(0, 120).toLowerCase() : undefined;
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  return createHash('sha256').update(value.trim().toLowerCase()).digest('hex').slice(0, 16);
 }

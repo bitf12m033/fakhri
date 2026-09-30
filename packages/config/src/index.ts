@@ -24,6 +24,11 @@ const EnvSchema = z.object({
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OTP_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(5),
   RATE_LIMIT_AUTH_PER_MINUTE: z.coerce.number().int().positive().default(10),
+
+  // Checkout (increment 3.5). Catalog prices are quoted tax-inclusive in this
+  // market, so the default adds no separate tax line; set a rate to break it out.
+  TAX_RATE_PERCENT: z.coerce.number().min(0).max(100).default(0),
+  CART_TTL_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

@@ -17,7 +17,9 @@ export class AdminAuthController {
   }
 
   @Public()
-  @RateLimit({ limit: 30, windowSeconds: 60 })
+  // Bucketed by the presented token: replaying one token gets throttled without
+  // punishing everyone else behind the same address (carrier NAT is the norm here).
+  @RateLimit({ limit: 30, windowSeconds: 60, bodyKey: 'refreshToken' })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() dto: RefreshTokenDto, @ReqContext() context: RequestContext) {

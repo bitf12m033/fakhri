@@ -9,6 +9,7 @@ import { createAdmin, deleteAdmins } from './support/admin';
 import {
   allocatePhone,
   deleteCustomers,
+  RATE_LIMIT_SCOPES,
   registerCustomer,
   resetRateLimits,
   TEST_CUSTOMER_PASSWORD,
@@ -52,7 +53,13 @@ describe('Customer accounts (e2e)', () => {
   }, 60_000);
 
   beforeEach(async () => {
-    await resetRateLimits(app);
+    // Deliberately not the OTP request bucket: one test asserts that cap fires.
+    await resetRateLimits(app, [
+      RATE_LIMIT_SCOPES.register,
+      RATE_LIMIT_SCOPES.login,
+      RATE_LIMIT_SCOPES.verifyOtp,
+      RATE_LIMIT_SCOPES.setPassword,
+    ]);
   });
 
   afterAll(async () => {

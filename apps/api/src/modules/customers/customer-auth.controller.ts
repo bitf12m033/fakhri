@@ -44,7 +44,8 @@ export class CustomerAuthController {
   }
 
   @Public()
-  @RateLimit({ limit: 30, windowSeconds: 60 })
+  // Bucketed by the presented token, not the shared NAT address.
+  @RateLimit({ limit: 30, windowSeconds: 60, bodyKey: 'refreshToken' })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() dto: RefreshTokenDto, @ReqContext() context: RequestContext) {

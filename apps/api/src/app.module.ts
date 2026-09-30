@@ -7,8 +7,12 @@ import { HealthModule } from './health/health.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CartModule } from './modules/cart/cart.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { CheckoutModule } from './modules/checkout/checkout.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { SearchModule } from './modules/search/search.module';
 
 @Module({
@@ -26,6 +30,10 @@ import { SearchModule } from './modules/search/search.module';
     CatalogModule,
     SearchModule,
     CustomersModule,
+    InventoryModule,
+    CartModule,
+    CheckoutModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}

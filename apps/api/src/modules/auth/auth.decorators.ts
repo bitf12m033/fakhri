@@ -4,6 +4,7 @@ import { UserRole } from '@fakhri/prisma';
 export const PUBLIC_KEY = 'auth:public';
 export const ROLES_KEY = 'auth:roles';
 export const CUSTOMER_KEY = 'auth:customer';
+export const OPTIONAL_KEY = 'auth:optional';
 export const RATE_LIMIT_KEY = 'auth:rate-limit';
 
 /** No authentication. Storefront reads and health only. */
@@ -18,6 +19,12 @@ export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
 
 /** Customer-account route (`/customers/me/**`). */
 export const CustomerRoute = () => SetMetadata(CUSTOMER_KEY, true);
+
+/**
+ * Open to anonymous callers, but a bearer token is still honoured when present.
+ * Cart and checkout need this: the same route serves guests and signed-in customers.
+ */
+export const OptionalAuth = () => SetMetadata(OPTIONAL_KEY, true);
 
 export interface RateLimitOptions {
   limit: number;

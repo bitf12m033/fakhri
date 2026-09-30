@@ -4,14 +4,15 @@ import { UserRole } from '@fakhri/prisma';
 import { AppError } from '@fakhri/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { currentActor } from '../../common/actor-context';
-import { CUSTOMER_KEY, PUBLIC_KEY, ROLES_KEY } from './auth.decorators';
+import { CUSTOMER_KEY, OPTIONAL_KEY, PUBLIC_KEY, ROLES_KEY } from './auth.decorators';
 import { AuthenticatedRequest, Principal } from './principal';
 import { TokenService } from './token.service';
 
 /**
  * Single gate for authentication and authorization (REQ-29). A route is reachable
- * only if it declares how: @Public, @Roles(...) for admins, or @CustomerRoute.
- * Anything undeclared is denied, so a new admin route cannot ship open by accident.
+ * only if it declares how: @Public, @OptionalAuth, @Roles(...) for admins, or
+ * @CustomerRoute. Anything undeclared is denied, so a new admin route cannot ship
+ * open by accident.
  *
  * Admin requests re-read the account so deactivation and role changes take effect
  * immediately; customer requests trust the 15-minute access token to stay cheap.
@@ -29,13 +30,18 @@ export class AccessGuard implements CanActivate {
     const targets = [context.getHandler(), context.getClass()];
     if (this.reflector.getAllAndOverride<boolean>(PUBLIC_KEY, targets)) return true;
 
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (this.reflector.getAllAndOverride<boolean>(OPTIONAL_KEY, targets)) {
+      await this.attachIfPresent(request);
+      return true;
+    }
+
     const roles = this.reflector.getAllAndOverride<UserRole[] | undefined>(ROLES_KEY, targets);
     const customerRoute = this.reflector.getAllAndOverride<boolean>(CUSTOMER_KEY, targets) ?? false;
     if (roles === undefined && !customerRoute) {
       throw new AppError('FORBIDDEN', 'Route declares no access policy');
     }
 
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = bearerToken(request.headers.authorization);
     if (!token) throw new AppError('UNAUTHENTICATED', 'Authentication required');
     const principal = await this.tokens.verifyAccess(token);
@@ -48,6 +54,20 @@ export class AccessGuard implements CanActivate {
     const actor = currentActor();
     if (actor) actor.principal = resolved;
     return true;
+  }
+
+  /**
+   * Identify the caller when they offer a token, stay anonymous when they do not.
+   * A token that is present but invalid is still an error: silently downgrading
+   * to anonymous would hide an expired session behind a guest cart.
+   */
+  private async attachIfPresent(request: AuthenticatedRequest): Promise<void> {
+    const token = bearerToken(request.headers.authorization);
+    if (!token) return;
+    const principal = await this.tokens.verifyAccess(token);
+    request.principal = principal;
+    const actor = currentActor();
+    if (actor) actor.principal = principal;
   }
 
   private authorizeCustomer(principal: Principal): Principal {
