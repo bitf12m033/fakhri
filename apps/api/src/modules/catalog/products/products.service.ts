@@ -16,6 +16,7 @@ import {
 import { requireSlug } from '../catalog.slug';
 import { BrandsService } from '../brands/brands.service';
 import { CategoriesService } from '../categories/categories.service';
+import { SearchDocumentService } from '../search-document.service';
 import { AttributeValueDto } from '../dto/attribute-value.dto';
 import { AttributeValuesService, PreparedValue } from './attribute-values.service';
 import {
@@ -57,6 +58,7 @@ export class ProductsService {
     private readonly brands: BrandsService,
     private readonly categories: CategoriesService,
     private readonly values: AttributeValuesService,
+    private readonly documents: SearchDocumentService,
   ) {}
 
   async create(dto: CreateProductDto) {
@@ -111,6 +113,7 @@ export class ProductsService {
         });
       }
       if (status === ProductStatus.ACTIVE) await this.publish(tx, created.id, slug);
+      await this.documents.refreshProduct(tx, created.id);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.product.create', entityType: 'Product', entityId: created.id, after: { slug, status } },
         tx,
@@ -213,6 +216,7 @@ export class ProductsService {
         },
       });
       if (publishing) await this.publish(tx, id, updated.slug);
+      await this.documents.refreshProduct(tx, id);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.product.update', entityType: 'Product', entityId: id, after: dto },
         tx,
@@ -247,6 +251,7 @@ export class ProductsService {
     const id = await inTx(this.prisma, 'Variant', async (tx) => {
       const created = await tx.productVariant.create({ data: variantData(productId, plan) });
       await this.values.write(tx, { variantId: created.id }, plan.values);
+      await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.variant.create', entityType: 'ProductVariant', entityId: created.id, after: { sku: dto.sku, productId } },
         tx,
@@ -293,6 +298,7 @@ export class ProductsService {
           isAvailableOnOrder: dto.isAvailableOnOrder,
         },
       });
+      await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.variant.update', entityType: 'ProductVariant', entityId: variantId, after: dto },
         tx,
@@ -309,6 +315,7 @@ export class ProductsService {
     }
     await inTx(this.prisma, 'Variant', async (tx) => {
       await tx.productVariant.delete({ where: { id: variantId } });
+      await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.variant.delete', entityType: 'ProductVariant', entityId: variantId },
         tx,
@@ -391,6 +398,7 @@ export class ProductsService {
     );
     await inTx(this.prisma, 'Product attribute value', async (tx) => {
       await this.values.write(tx, { productId }, prepared);
+      await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         { ...CATALOG_ACTOR, action: 'catalog.product_attribute_values.replace', entityType: 'Product', entityId: productId, after: { count: prepared.length } },
         tx,
@@ -404,6 +412,7 @@ export class ProductsService {
     const prepared = await this.values.prepare(inputs);
     await inTx(this.prisma, 'Variant attribute value', async (tx) => {
       await this.values.write(tx, { variantId }, prepared);
+      await this.documents.refreshProduct(tx, productId);
       await this.audit.log(
         {
           ...CATALOG_ACTOR,

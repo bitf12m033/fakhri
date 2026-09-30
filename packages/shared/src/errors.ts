@@ -47,5 +47,8 @@ export const outOfStock = (sku?: string): AppError =>
 
 export const notFound = (entity: string): AppError => new AppError('NOT_FOUND', `${entity} not found`);
 
+export const invalidInput = (message: string, details?: unknown): AppError =>
+  new AppError('INVALID_INPUT', message, details);
+
 export const conflict = (message: string, details?: unknown): AppError =>
   new AppError('CONFLICT', message, details);

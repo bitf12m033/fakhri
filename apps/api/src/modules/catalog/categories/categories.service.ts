@@ -7,6 +7,7 @@ import { CATALOG_ACTOR, CATALOG_LIMITS } from '../catalog.constants';
 import { inTx, invalid } from '../catalog.errors';
 import { iso, jsonWrite, readSeo, SeoView } from '../catalog.serialize';
 import { requireSlug } from '../catalog.slug';
+import { SearchDocumentService } from '../search-document.service';
 import {
   CategoryAttributeBindingDto,
   CreateCategoryDto,
@@ -65,6 +66,7 @@ export class CategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly documents: SearchDocumentService,
   ) {}
 
   async create(dto: CreateCategoryDto): Promise<CategoryView> {
@@ -146,6 +148,9 @@ export class CategoriesService {
           seo: jsonWrite(dto.seo),
         },
       });
+      if (dto.name !== undefined && dto.name !== existing.name) {
+        await this.documents.refreshByCategory(tx, id);
+      }
       await this.audit.log(
         {
           ...CATALOG_ACTOR,
@@ -283,6 +288,43 @@ export class CategoriesService {
     const row = await this.prisma.category.findUnique({ where: { id } });
     if (!row) throw notFound('Category');
     return row;
+  }
+
+  /** Root -> category chain for storefront breadcrumbs (REQ-05). */
+  async breadcrumb(categoryId: string): Promise<{ id: string; slug: string; name: string }[]> {
+    const chain: { id: string; slug: string; name: string }[] = [];
+    const seen = new Set<string>();
+    let cursor: string | null = categoryId;
+    while (cursor) {
+      if (seen.has(cursor)) throw conflict('Category tree contains a cycle');
+      if (chain.length >= CATALOG_LIMITS.treeDepth) throw conflict('Category tree is too deep');
+      seen.add(cursor);
+      const row: { id: string; slug: string; name: string; parentId: string | null } | null =
+        await this.prisma.category.findUnique({
+          where: { id: cursor },
+          select: { id: true, slug: true, name: true, parentId: true },
+        });
+      if (!row) throw notFound('Category');
+      chain.push({ id: row.id, slug: row.slug, name: row.name });
+      cursor = row.parentId;
+    }
+    return chain.reverse();
+  }
+
+  /** The category and every descendant. A PLP for a parent lists its whole subtree (REQ-04). */
+  async subtreeIds(categoryId: string): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      WITH RECURSIVE subtree AS (
+        SELECT id, 1 AS depth FROM "Category" WHERE id = ${categoryId}
+        UNION ALL
+        SELECT child.id, parent.depth + 1
+          FROM "Category" child
+          JOIN subtree parent ON child."parentId" = parent.id
+         WHERE parent.depth < ${CATALOG_LIMITS.treeDepth}
+      )
+      SELECT id FROM subtree
+    `);
+    return rows.map((row) => row.id);
   }
 
   private async assertValidParent(categoryId: string | null, parentId: string | null): Promise<void> {

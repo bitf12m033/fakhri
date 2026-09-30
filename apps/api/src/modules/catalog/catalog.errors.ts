@@ -1,9 +1,8 @@
-import { AppError } from '@fakhri/shared';
+import { AppError, invalidInput } from '@fakhri/shared';
 import { Prisma } from '@fakhri/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 
-export const invalid = (message: string, details?: unknown): AppError =>
-  new AppError('INVALID_INPUT', message, details);
+export const invalid = invalidInput;
 
 /** Map Prisma failures onto the API error contract. AppError passes through. */
 export function rethrowPrisma(error: unknown, entity: string): never {

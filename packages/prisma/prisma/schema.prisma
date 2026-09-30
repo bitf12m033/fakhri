@@ -226,6 +226,11 @@ model Product {
   publishedAt      DateTime?
   seo              Json?
 
+  // Search index maintained by the catalog module inside the mutating transaction
+  // (increment 3.3). GIN indexes live in the migration: Prisma cannot express them.
+  searchDocument String?
+  searchVector   Unsupported("tsvector")?
+
   variants        ProductVariant[]
   attributeValues ProductAttributeValue[]
   images          ProductImage[]

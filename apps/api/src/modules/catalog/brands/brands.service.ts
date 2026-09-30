@@ -7,6 +7,7 @@ import { CATALOG_ACTOR } from '../catalog.constants';
 import { inTx } from '../catalog.errors';
 import { iso, jsonWrite, readSeo, SeoView } from '../catalog.serialize';
 import { requireSlug } from '../catalog.slug';
+import { SearchDocumentService } from '../search-document.service';
 import { CreateBrandDto, ListBrandsQueryDto, UpdateBrandDto } from './brand.dto';
 
 export interface BrandView {
@@ -27,6 +28,7 @@ export class BrandsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly documents: SearchDocumentService,
   ) {}
 
   async create(dto: CreateBrandDto): Promise<BrandView> {
@@ -88,6 +90,9 @@ export class BrandsService {
           seo: jsonWrite(dto.seo),
         },
       });
+      if (dto.name !== undefined && dto.name !== existing.name) {
+        await this.documents.refreshByBrand(tx, id);
+      }
       await this.audit.log(
         {
           ...CATALOG_ACTOR,

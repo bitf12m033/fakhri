@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { AuditModule } from './audit/audit.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     OutboxModule,
     AuditModule,
     CatalogModule,
+    SearchModule,
   ],
 })
 export class AppModule {}
