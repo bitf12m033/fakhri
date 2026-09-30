@@ -242,6 +242,10 @@ model Product {
   @@index([brandId])
   @@index([categoryId])
   @@index([status])
+  // Search indexes (increment 3.3). Declared here so `migrate dev` does not drop them.
+  @@index([name(ops: raw("gin_trgm_ops"))], map: "Product_name_trgm_idx", type: Gin)
+  @@index([searchDocument(ops: raw("gin_trgm_ops"))], map: "Product_searchDocument_trgm_idx", type: Gin)
+  @@index([searchVector(ops: raw("tsvector_ops"))], map: "Product_searchVector_idx", type: Gin)
 }
 
 model ProductImage {
@@ -279,6 +283,7 @@ model ProductAttributeValue {
   @@unique([variantId, attributeId])
   @@index([attributeId, optionValueId])
   @@index([attributeId, numberValue])
+  @@index([attributeId, booleanValue])
 }
 
 model ProductVariant {
@@ -311,6 +316,7 @@ model ProductVariant {
 
   @@index([productId])
   @@index([isActive])
+  @@index([productId, isActive, price])
 }
 
 // ---------------------------------------------------------------- Inventory (single warehouse MVP)
