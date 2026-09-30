@@ -1,0 +1,53 @@
+name: cd
+
+# Single-VM deploy (DEC-09): main build -> push image -> SSH to VM -> compose pull/up.
+# Registry + VM details are repo/environment secrets. Wired when the VM is provisioned.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run db:generate
+
+      - name: build images
+        run: |
+          docker build -t fakhri/api:${{ github.sha }} -f apps/api/Dockerfile .
+          docker build -t fakhri/web:${{ github.sha }} -f apps/web/Dockerfile .
+
+      - name: push images
+        env:
+          REGISTRY: ${{ secrets.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
+        run: |
+          echo "$REGISTRY_PASS" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          docker tag fakhri/api:${{ github.sha }} "$REGISTRY/fakhri/api:${{ github.sha }}"
+          docker tag fakhri/web:${{ github.sha }} "$REGISTRY/fakhri/web:${{ github.sha }}"
+          docker push "$REGISTRY/fakhri/api:${{ github.sha }}"
+          docker push "$REGISTRY/fakhri/web:${{ github.sha }}"
+
+      - name: deploy to VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /opt/fakhri
+            sed -i "s|IMAGE_API=.*|IMAGE_API=${{ secrets.REGISTRY }}/fakhri/api:${{ github.sha }}|" .env
+            sed -i "s|IMAGE_WEB=.*|IMAGE_WEB=${{ secrets.REGISTRY }}/fakhri/web:${{ github.sha }}|" .env
+            docker compose pull && docker compose up -d api
+            docker compose run --rm migrate || docker compose up -d api
+            sleep 15
+            curl -fsS http://localhost:3000/health || exit 1

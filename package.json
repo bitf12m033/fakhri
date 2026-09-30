@@ -1,0 +1,30 @@
+{
+  "name": "fakhri",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pakistan electronics & home appliances e-commerce platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20 <25"
+  },
+  "scripts": {
+    "dev:infra": "docker compose up -d postgres redis minio mailhog",
+    "build:packages": "npm run build -w @fakhri/shared && npm run build -w @fakhri/config && npm run build -w @fakhri/prisma",
+    "build": "npm run build:packages && npm run build -w apps/api",
+    "typecheck": "npm run build:packages && npm run typecheck -w apps/api && npm run typecheck -w apps/web",
+    "lint": "eslint .",
+    "test": "npm run test -w @fakhri/shared && npm run test -w apps/api",
+    "migrate:dev": "npm run migrate:dev -w @fakhri/prisma",
+    "db:generate": "npm run db:generate -w @fakhri/prisma",
+    "dev:api": "npm run start:dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web"
+  },
+  "devDependencies": {
+    "eslint": "^9.11.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.8.1"
+  }
+}

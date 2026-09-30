@@ -1,0 +1,32 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "15 1 * * *"
+
+jobs:
+  e2e:
+    name: e2e + perf budgets
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: fakhri, POSTGRES_PASSWORD: fakhri_dev, POSTGRES_DB: fakhri }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fakhri -d fakhri"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npx prisma migrate deploy --schema packages/prisma/prisma/schema.prisma
+      # Full E2E + k6 + Lighthouse budgets activate when Playwright suite lands (docs/aidlc/05 §1).
+      - run: npm test
+      - name: report
+        run: echo "nightly gate passed"

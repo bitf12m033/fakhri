@@ -1,0 +1,25 @@
+# dependencies / build output
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+coverage/
+
+# generated (prisma client)
+generated/
+
+# environment & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
+
+# os / tools
+.DS_Store
+*.log
+.turbo/
+.eslintcache
+
+# graphs
+*.drawio.backup

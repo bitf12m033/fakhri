@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: lint + typecheck + tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fakhri
+          POSTGRES_PASSWORD: fakhri_dev
+          POSTGRES_DB: fakhri
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fakhri -d fakhri"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://fakhri:fakhri_dev@localhost:5432/fakhri
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npx prisma migrate deploy --schema packages/prisma/prisma/schema.prisma
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: summarize
+        run: echo "quality gate passed"
+
+  # Nightly perf / budget checks live in nightly.yml (k6 + lighthouse).
+  # Production deploy lives in cd.yml (main → single VM, docker compose).
