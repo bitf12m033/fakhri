@@ -21,6 +21,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ContentModule } from './modules/content/content.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { SearchModule } from './modules/search/search.module';
+import { RevalidationModule } from './modules/revalidation/revalidation.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SearchModule } from './modules/search/search.module';
     ContentModule,
     ReportingModule,
     NotificationsModule,
+    RevalidationModule,
   ],
 })
 export class AppModule {}

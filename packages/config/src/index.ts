@@ -10,6 +10,12 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   CORS_ORIGIN: z.string().default('http://localhost:3001'),
+  // Express `trust proxy` (increment 3.8). The storefront calls the API from its
+  // server, so without this every shopper shares the storefront's address and
+  // one rate-limit bucket. Name only the hops you control, e.g. "loopback, uniquelocal",
+  // and only when a reverse proxy in front of the storefront appends X-Forwarded-For:
+  // Next.js passes a client-supplied header through untouched. Unset trusts nobody.
+  TRUST_PROXY: z.string().optional(),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent']).default('info'),
   OTP_TTL_MINUTES: z.coerce.number().int().positive().default(5),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
@@ -39,6 +45,11 @@ const EnvSchema = z.object({
   OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(20),
   NOTIFICATIONS_CHANNEL: z.enum(['console', 'none']).default('console'),
+
+  // Storefront cache revalidation (increment 3.8). Both unset disables it, which is
+  // what tests want; the storefront then relies on its time-based revalidation.
+  WEB_REVALIDATE_URL: z.string().url().optional(),
+  WEB_REVALIDATE_SECRET: z.string().min(32, 'WEB_REVALIDATE_SECRET must be at least 32 characters').optional(),
 
   // Printed on invoices (REQ-31/REQ-40: FBR fields).
   SELLER_NAME: z.string().default('Fakhri Electronics'),

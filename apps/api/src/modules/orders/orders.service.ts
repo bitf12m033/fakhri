@@ -7,6 +7,7 @@ import { OUTBOX_EVENTS } from '../../outbox/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import { currentActor } from '../../common/actor-context';
 import { moneyString } from '../catalog/catalog.serialize';
+import { normalizePhone } from '../customers/phone';
 import { InventoryService } from '../inventory/inventory.service';
 import { AdminListOrdersQueryDto, ListOrdersQueryDto, TransitionOrderDto } from './orders.dto';
 import { assertTransition, canCustomerCancel, consumesStock, releasesStock } from './order-state';
@@ -58,6 +59,20 @@ export class OrdersService {
   async getForCustomer(customerId: string, refNumber: string): Promise<OrderView> {
     const order = await this.prisma.order.findFirst({
       where: { refNumber, customerId },
+      include: orderInclude,
+    });
+    if (!order) throw notFound('Order');
+    return serializeOrder(order);
+  }
+
+  /**
+   * Guest tracking (REQ-16 for guests, increment 3.8). A mismatch on either field
+   * is NOT_FOUND, so the answer never says which of the two was wrong. An order
+   * placed from an account is not reachable here: its owner has a better credential.
+   */
+  async getForGuest(refNumber: string, rawPhone: string): Promise<OrderView> {
+    const order = await this.prisma.order.findFirst({
+      where: { refNumber, customerId: null, guestPhone: normalizePhone(rawPhone) },
       include: orderInclude,
     });
     if (!order) throw notFound('Order');

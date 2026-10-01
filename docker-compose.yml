@@ -63,7 +63,12 @@ services:
       JWT_ISSUER: fakhri-api
       # Dev-only stand-in for a real gateway secret (increment 3.6).
       PAYMENT_MOCK_SECRET: ${PAYMENT_MOCK_SECRET:-mock-gateway-dev-secret-0000}
+      PAYMENT_RETURN_URL: http://localhost:3001/checkout/return
       OUTBOX_POLL_MS: 5000
+      # Storefront revalidation (increment 3.8). TRUST_PROXY stays unset: the storefront
+      # is exposed directly here, and Next.js would pass a spoofed X-Forwarded-For through.
+      WEB_REVALIDATE_URL: http://web:3000/internal/revalidate
+      WEB_REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev-only-revalidate-secret-change-me-0000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +83,9 @@ services:
       dockerfile: Dockerfile
     environment:
       API_URL: http://api:3000
-      NEXT_PUBLIC_API_URL: http://localhost:3000
+      SITE_URL: http://localhost:3001
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev-only-revalidate-secret-change-me-0000}
+      PAYMENT_MOCK_SECRET: ${PAYMENT_MOCK_SECRET:-mock-gateway-dev-secret-0000}
     depends_on:
       - api
     ports:

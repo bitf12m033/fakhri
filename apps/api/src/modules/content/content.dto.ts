@@ -17,6 +17,8 @@ import { SeoDto } from '../catalog/dto/seo.dto';
 
 /** Positions are storefront-defined names, e.g. `home-hero`, `plp-sidebar`. */
 const POSITION = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Same rule as catalog images: an absolute URL, and a TLD-less host is fine (MinIO, localhost). */
+const IMAGE_URL = { require_protocol: true, require_tld: false };
 
 export class CreatePageDto {
   @IsString()
@@ -80,7 +82,7 @@ export class CreateBannerDto {
   @MaxLength(160)
   title?: string;
 
-  @IsUrl()
+  @IsUrl(IMAGE_URL)
   @MaxLength(500)
   imageUrl!: string;
 
@@ -120,7 +122,7 @@ export class UpdateBannerDto {
   title?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl(IMAGE_URL)
   @MaxLength(500)
   imageUrl?: string;
 

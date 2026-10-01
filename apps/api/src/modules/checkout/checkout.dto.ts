@@ -59,6 +59,23 @@ export class CheckoutAddressDto {
   landmark?: string;
 }
 
+/** Enough to price an order: how it travels and, for home delivery, where to. */
+export class CheckoutQuoteDto {
+  @IsIn(Object.values(DeliveryType))
+  deliveryType!: DeliveryType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  province?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  addressId?: string;
+}
+
 export class CheckoutDto {
   @IsIn(Object.values(DeliveryType))
   deliveryType!: DeliveryType;

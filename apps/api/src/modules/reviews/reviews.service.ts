@@ -4,6 +4,8 @@ import { AppError, buildMeta, conflict, normalizePagination, notFound } from '@f
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { currentActor } from '../../common/actor-context';
+import { OUTBOX_EVENTS } from '../../outbox/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
 import { AdminListReviewsQueryDto, CreateReviewDto, ListReviewsQueryDto, ModerateReviewDto } from './reviews.dto';
 
 export interface RatingSummary {
@@ -23,6 +25,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async create(customerId: string, dto: CreateReviewDto) {
@@ -174,15 +177,38 @@ export class ReviewsService {
       throw conflict(`This review is already ${dto.status.toLowerCase()}`);
     }
 
-    const updated = await this.prisma.review.update({ where: { id }, data: { status: dto.status } });
-    await this.audit.log({
-      actorType: 'ADMIN',
-      actorId: currentActor()?.principal?.id,
-      action: 'reviews.review.moderate',
-      entityType: 'Review',
-      entityId: id,
-      before: { status: existing.status },
-      after: { status: dto.status, note: dto.note },
+    // Only a change into or out of APPROVED alters what shoppers see.
+    const visibilityChanged = existing.status === ReviewStatus.APPROVED || dto.status === ReviewStatus.APPROVED;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const review = await tx.review.update({
+        where: { id },
+        data: { status: dto.status },
+        include: { product: { select: { slug: true } } },
+      });
+      await this.audit.log(
+        {
+          actorType: 'ADMIN',
+          actorId: currentActor()?.principal?.id,
+          action: 'reviews.review.moderate',
+          entityType: 'Review',
+          entityId: id,
+          before: { status: existing.status },
+          after: { status: dto.status, note: dto.note },
+        },
+        tx,
+      );
+      if (visibilityChanged) {
+        await this.outbox.enqueue(
+          {
+            type: OUTBOX_EVENTS.REVIEW_MODERATED,
+            aggregateType: 'Review',
+            aggregateId: id,
+            payload: { reviewId: id, productId: review.productId, slug: review.product.slug, status: dto.status },
+          },
+          tx,
+        );
+      }
+      return review;
     });
     return { id: updated.id, status: updated.status };
   }

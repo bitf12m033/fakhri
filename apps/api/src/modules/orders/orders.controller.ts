@@ -1,10 +1,33 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { UserRole } from '@fakhri/prisma';
-import { CustomerRoute, Roles } from '../auth/auth.decorators';
+import { CustomerRoute, Public, RateLimit, Roles } from '../auth/auth.decorators';
 import { CurrentCustomer } from '../auth/principal';
 import { DocumentsService } from './documents.service';
-import { AdminListOrdersQueryDto, ListOrdersQueryDto, TransitionOrderDto } from './orders.dto';
+import {
+  AdminListOrdersQueryDto,
+  GuestOrderLookupDto,
+  ListOrdersQueryDto,
+  TransitionOrderDto,
+} from './orders.dto';
 import { OrdersService } from './orders.service';
+
+/** Guest order tracking by reference plus phone (increment 3.8). */
+@Controller('orders')
+@Public()
+export class GuestOrdersController {
+  constructor(private readonly orders: OrdersService) {}
+
+  /**
+   * POST so the phone number stays out of URLs and access logs. Bucketed per
+   * reference as well as per address, so guessing phones for one order is slow.
+   */
+  @RateLimit({ limit: 10, windowSeconds: 300, bodyKey: 'refNumber' })
+  @Post('lookup')
+  @HttpCode(HttpStatus.OK)
+  async lookup(@Body() dto: GuestOrderLookupDto) {
+    return { data: await this.orders.getForGuest(dto.refNumber.trim(), dto.phone) };
+  }
+}
 
 /** A customer's own order history and cancellation (REQ-16/24). */
 @Controller('customers/me/orders')

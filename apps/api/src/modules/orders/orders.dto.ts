@@ -20,6 +20,20 @@ export class AdminListOrdersQueryDto extends ListOrdersQueryDto {
   q?: string;
 }
 
+/**
+ * A guest has no account, so they prove ownership of an order the same way they
+ * do to pay for it: the reference plus the phone number it was placed with.
+ */
+export class GuestOrderLookupDto {
+  @IsString()
+  @MaxLength(40)
+  refNumber!: string;
+
+  @IsString()
+  @MaxLength(24)
+  phone!: string;
+}
+
 export class TransitionOrderDto {
   @IsIn(Object.values(OrderStatus))
   status!: OrderStatus;

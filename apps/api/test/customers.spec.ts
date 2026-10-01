@@ -176,9 +176,10 @@ describe('Customer accounts (e2e)', () => {
     const customer = await registerCustomer(app);
     phones.push(customer.phone);
 
-    const home = await post('/customers/me/addresses', addressBody('Home'), customer.token);
+    // The first address is the default even when the request says otherwise (3.8 fix).
+    const home = await post('/customers/me/addresses', { ...addressBody('Home'), isDefault: false }, customer.token);
     expect(home.status).toBe(201);
-    expect(home.body.data.isDefault).toBe(true); // the first address is the default
+    expect(home.body.data.isDefault).toBe(true);
     expect(home.body.data.phone).toBe('+923001234567'); // normalized on the way in
 
     const office = await post('/customers/me/addresses', { ...addressBody('Office'), isDefault: true }, customer.token);

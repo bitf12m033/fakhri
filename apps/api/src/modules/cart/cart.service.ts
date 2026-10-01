@@ -124,7 +124,9 @@ export class CartService {
       create: { cartId: cart.id, variantId: dto.variantId, quantity, unitPrice: variant.price },
       update: { quantity, unitPrice: variant.price },
     });
-    return this.touch(cart.id, owner);
+    // A first-time guest arrives without a token; read back by the one just issued,
+    // or the response is an empty cart and the guest never learns their token.
+    return this.touch(cart.id, { ...owner, token: owner.token ?? cart.token ?? undefined });
   }
 
   async updateItem(owner: CartOwner, itemId: string, quantity: number): Promise<CartView> {

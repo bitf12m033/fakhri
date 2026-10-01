@@ -76,10 +76,35 @@ describe('Cart and checkout (e2e)', () => {
     expect((await cart(token).delete(`/api/v1/cart/items/${line.itemId}`)).status).toBe(404);
   });
 
+  it('issues a token to a first-time guest and returns the cart it started (increment 3.8)', async () => {
+    const added = await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .send({ variantId: fx.variantId, quantity: 1 });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    const token: string = added.body.data.token;
+    expect(token).toMatch(/\S{20,}/);
+    expect(added.body.data.itemCount).toBe(1);
+
+    const read = await cart(token).get('/api/v1/cart');
+    expect(read.body.data.itemCount).toBe(1);
+    // The token is not run-prefixed, so cleanupPurchase would not find this cart.
+    await app.get(PrismaService).cart.delete({ where: { id: read.body.data.id } });
+  });
+
   it('places a guest order, reserves the stock and empties the cart (REQ-19/23)', async () => {
     const token = `${run}-guest-order`;
     await cart(token).post('/api/v1/cart/items').send({ variantId: fx.variantId, quantity: 1 });
     const before = await stockOf(app.get(PrismaService), fx.variantId);
+
+    // The quote prices the cart exactly as placement will, and reserves nothing (3.8).
+    const quote = await cart(token).post('/api/v1/checkout/quote').send({ deliveryType: 'HOME_DELIVERY', province: 'Punjab' });
+    expect(quote.status, JSON.stringify(quote.body)).toBe(200);
+    expect(quote.body.data).toMatchObject({ itemsTotal: '54999.00', deliveryFee: '500.00', grandTotal: '55499.00' });
+    expect(quote.body.data.delivery).toMatchObject({ zone: 'A', bands: 1 });
+    expect((await stockOf(app.get(PrismaService), fx.variantId)).reserved).toBe(before.reserved);
+    expect((await cart(token).post('/api/v1/checkout/quote').send({ deliveryType: 'HOME_DELIVERY', province: 'Atlantis' })).status).toBe(400);
+    const pickup = await cart(token).post('/api/v1/checkout/quote').send({ deliveryType: 'STORE_PICKUP' });
+    expect(pickup.body.data).toMatchObject({ deliveryFee: '0.00', grandTotal: '54999.00' });
 
     const placed = await checkout(token, `${run}-key-guest`, {
       deliveryType: 'HOME_DELIVERY',
@@ -110,6 +135,16 @@ describe('Cart and checkout (e2e)', () => {
     expect(after.reserved).toBe(before.reserved + 1);
     expect(after.onHand).toBe(before.onHand); // nothing has shipped yet
     expect((await cart(token).get('/api/v1/cart')).body.data.itemCount).toBe(0);
+
+    // A guest tracks the order with its reference plus the phone, in any format (3.8).
+    const lookup = (refNumber: string, phone: string) =>
+      request(app.getHttpServer()).post('/api/v1/orders/lookup').send({ refNumber, phone });
+    const found = await lookup(order.refNumber, '+92 300 1234567');
+    expect(found.status, JSON.stringify(found.body)).toBe(200);
+    expect(found.body.data).toMatchObject({ refNumber: order.refNumber, grandTotal: '55499.00' });
+    // A wrong phone and an unknown reference look the same: neither says which part was wrong.
+    expect((await lookup(order.refNumber, '03009999999')).status).toBe(404);
+    expect((await lookup('FK-000000-000000', '03001234567')).status).toBe(404);
   });
 
   it('replays a repeated Idempotency-Key instead of placing a second order', async () => {
@@ -178,6 +213,12 @@ describe('Cart and checkout (e2e)', () => {
       .set('Authorization', `Bearer ${customer.token}`);
     expect(detail.status).toBe(200);
     expect(detail.body.data.items[0].sku).toBe(fx.sku);
+
+    // Guest lookup never reaches an account's order, even with the right phone.
+    const asGuest = await request(app.getHttpServer())
+      .post('/api/v1/orders/lookup')
+      .send({ refNumber: placed.body.data.refNumber, phone: customer.phone });
+    expect(asGuest.status).toBe(404);
 
     // Another customer cannot read it.
     const stranger = await registerCustomer(app);

@@ -4,7 +4,7 @@ import { OptionalAuth, RateLimit } from '../auth/auth.decorators';
 import { ReqContext, RequestContext } from '../auth/principal';
 import { CartContext } from '../cart/cart-identity';
 import { CartOwner } from '../cart/cart.service';
-import { CheckoutDto } from './checkout.dto';
+import { CheckoutDto, CheckoutQuoteDto } from './checkout.dto';
 import { CheckoutService } from './checkout.service';
 
 const KEY_HEADER = 'Idempotency-Key';
@@ -30,5 +30,13 @@ export class CheckoutController {
       throw invalidInput(`Send a unique ${KEY_HEADER} header of 8 to 200 characters`);
     }
     return { data: await this.checkout.checkout({ ...owner, ...request }, dto, key) };
+  }
+
+  /** Price the cart for a delivery choice without placing anything (increment 3.8). */
+  @Post('quote')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ limit: 60, windowSeconds: 60 })
+  async quote(@CartContext() owner: CartOwner, @Body() dto: CheckoutQuoteDto) {
+    return { data: await this.checkout.quote(owner, dto) };
   }
 }

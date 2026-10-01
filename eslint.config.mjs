@@ -8,6 +8,9 @@ export default tseslint.config(
       '**/dist/**',
       '**/generated/**',
       '**/.next/**',
+      '**/.next-e2e/**',
+      'e2e/test-results/**',
+      '**/playwright-report/**',
       '**/coverage/**',
       '*.config.{js,mjs,cjs}',
       '.github/**',
@@ -22,6 +25,13 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-console': 'off', // NestJS/nodes may log; structured logging is handled in api
+    },
+  },
+  {
+    // Plain Node scripts (next.config.mjs, e2e helpers).
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', fetch: 'readonly', setTimeout: 'readonly', URL: 'readonly' },
     },
   },
   {

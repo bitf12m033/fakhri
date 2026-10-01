@@ -38,7 +38,8 @@ export class AddressesService {
   async create(customerId: string, dto: CreateAddressDto): Promise<AddressView> {
     const count = await this.prisma.customerAddress.count({ where: { customerId } });
     if (count >= MAX_ADDRESSES) throw conflict(`You can save at most ${MAX_ADDRESSES} addresses`);
-    const isDefault = dto.isDefault ?? count === 0;
+    // The first address is the default whatever the request says: exactly one default, always.
+    const isDefault = count === 0 || (dto.isDefault ?? false);
 
     const created = await this.prisma.$transaction(async (tx) => {
       if (isDefault) {

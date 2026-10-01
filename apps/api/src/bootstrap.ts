@@ -18,6 +18,13 @@ export async function configureApp(app: INestApplication, _opts: BootstrapOption
   app.use(actorContextMiddleware);
 
   const config = app.get(ConfigService<AppConfig>);
+  const trustProxy = config.get<string>('TRUST_PROXY')?.trim();
+  if (trustProxy) {
+    // Numeric strings are hop counts to Express; everything else is an address list.
+    const value = /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy === 'true' ? true : trustProxy;
+    (app.getHttpAdapter().getInstance() as { set(key: string, value: unknown): void }).set('trust proxy', value);
+  }
+
   const corsOrigins = (config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3001')
     .split(',')
     .map((s) => s.trim())

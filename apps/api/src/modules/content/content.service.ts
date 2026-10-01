@@ -92,8 +92,9 @@ export class ContentService {
           publishedAt: publishing ? new Date() : undefined,
         },
       });
-      // Any change to a live page is worth announcing, not just the first publish.
-      if (publishing || (page.isPublished && dto.isPublished !== false)) {
+      // Any change to a live page is worth announcing, including taking it down:
+      // a pulled page must stop being served, not linger for a cache window.
+      if (existing.isPublished || page.isPublished) {
         await this.announce(tx, page.id, page.slug);
       }
       await this.audit.log(
@@ -114,12 +115,13 @@ export class ContentService {
   async removePage(id: string): Promise<{ id: string }> {
     const existing = await this.prisma.contentPage.findUnique({ where: { id } });
     if (!existing) throw notFound('Page');
-    await this.prisma.contentPage.delete({ where: { id } });
-    await this.audit.log({
-      action: 'content.page.delete',
-      entityType: 'ContentPage',
-      entityId: id,
-      before: { slug: existing.slug },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.contentPage.delete({ where: { id } });
+      if (existing.isPublished) await this.announce(tx, id, existing.slug);
+      await this.audit.log(
+        { action: 'content.page.delete', entityType: 'ContentPage', entityId: id, before: { slug: existing.slug } },
+        tx,
+      );
     });
     return { id };
   }
@@ -142,23 +144,30 @@ export class ContentService {
 
   async createBanner(dto: CreateBannerDto) {
     this.assertWindow(dto.startsAt, dto.endsAt);
-    const created = await this.prisma.banner.create({
-      data: {
-        title: dto.title,
-        imageUrl: dto.imageUrl,
-        linkUrl: dto.linkUrl,
-        position: dto.position,
-        sortOrder: dto.sortOrder ?? 0,
-        isActive: dto.isActive ?? true,
-        startsAt: dto.startsAt ? new Date(dto.startsAt) : null,
-        endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
-      },
-    });
-    await this.audit.log({
-      action: 'content.banner.create',
-      entityType: 'Banner',
-      entityId: created.id,
-      after: { position: dto.position, imageUrl: dto.imageUrl },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const banner = await tx.banner.create({
+        data: {
+          title: dto.title,
+          imageUrl: dto.imageUrl,
+          linkUrl: dto.linkUrl,
+          position: dto.position,
+          sortOrder: dto.sortOrder ?? 0,
+          isActive: dto.isActive ?? true,
+          startsAt: dto.startsAt ? new Date(dto.startsAt) : null,
+          endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
+        },
+      });
+      await this.announceBanner(tx, banner.id, banner.position);
+      await this.audit.log(
+        {
+          action: 'content.banner.create',
+          entityType: 'Banner',
+          entityId: banner.id,
+          after: { position: dto.position, imageUrl: dto.imageUrl },
+        },
+        tx,
+      );
+      return banner;
     });
     return serializeBanner(created);
   }
@@ -178,25 +187,32 @@ export class ContentService {
       dto.endsAt ?? existing.endsAt?.toISOString(),
     );
 
-    const updated = await this.prisma.banner.update({
-      where: { id },
-      data: {
-        title: dto.title,
-        imageUrl: dto.imageUrl,
-        linkUrl: dto.linkUrl,
-        position: dto.position,
-        sortOrder: dto.sortOrder,
-        isActive: dto.isActive,
-        startsAt: dto.startsAt === undefined ? undefined : new Date(dto.startsAt),
-        endsAt: dto.endsAt === undefined ? undefined : new Date(dto.endsAt),
-      },
-    });
-    await this.audit.log({
-      action: 'content.banner.update',
-      entityType: 'Banner',
-      entityId: id,
-      before: { isActive: existing.isActive, position: existing.position },
-      after: dto,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const banner = await tx.banner.update({
+        where: { id },
+        data: {
+          title: dto.title,
+          imageUrl: dto.imageUrl,
+          linkUrl: dto.linkUrl,
+          position: dto.position,
+          sortOrder: dto.sortOrder,
+          isActive: dto.isActive,
+          startsAt: dto.startsAt === undefined ? undefined : new Date(dto.startsAt),
+          endsAt: dto.endsAt === undefined ? undefined : new Date(dto.endsAt),
+        },
+      });
+      await this.announceBanner(tx, id, banner.position);
+      await this.audit.log(
+        {
+          action: 'content.banner.update',
+          entityType: 'Banner',
+          entityId: id,
+          before: { isActive: existing.isActive, position: existing.position },
+          after: dto,
+        },
+        tx,
+      );
+      return banner;
     });
     return serializeBanner(updated);
   }
@@ -204,12 +220,13 @@ export class ContentService {
   async removeBanner(id: string): Promise<{ id: string }> {
     const existing = await this.prisma.banner.findUnique({ where: { id } });
     if (!existing) throw notFound('Banner');
-    await this.prisma.banner.delete({ where: { id } });
-    await this.audit.log({
-      action: 'content.banner.delete',
-      entityType: 'Banner',
-      entityId: id,
-      before: { position: existing.position },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.banner.delete({ where: { id } });
+      await this.announceBanner(tx, id, existing.position);
+      await this.audit.log(
+        { action: 'content.banner.delete', entityType: 'Banner', entityId: id, before: { position: existing.position } },
+        tx,
+      );
     });
     return { id };
   }
@@ -241,6 +258,19 @@ export class ContentService {
     if (startsAt && endsAt && new Date(startsAt) > new Date(endsAt)) {
       throw invalidInput('startsAt must not be after endsAt');
     }
+  }
+
+  /** No slug: a banner change drops the storefront's `content` tag, which every banner fetch carries. */
+  private async announceBanner(tx: Prisma.TransactionClient, bannerId: string, position: string): Promise<void> {
+    await this.outbox.enqueue(
+      {
+        type: OUTBOX_EVENTS.CONTENT_UPDATED,
+        aggregateType: 'Banner',
+        aggregateId: bannerId,
+        payload: { bannerId, position },
+      },
+      tx,
+    );
   }
 
   private async announce(tx: Prisma.TransactionClient, pageId: string, slug: string): Promise<void> {

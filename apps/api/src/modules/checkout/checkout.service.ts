@@ -21,16 +21,22 @@ import { normalizePhone } from '../customers/phone';
 import { CouponOutcome } from '../promotions/coupon-rules';
 import { CouponsService } from '../promotions/coupons.service';
 import { orderInclude, OrderView, serializeOrder } from '../orders/order.serialize';
-import { CheckoutAddressDto, CheckoutDto } from './checkout.dto';
+import { CheckoutAddressDto, CheckoutDto, CheckoutQuoteDto } from './checkout.dto';
 import { quoteDelivery } from './delivery-fee';
 import { IdempotencyService } from './idempotency.service';
-import { computeTotals, itemsTotalOf, priceLine, PricedLine } from './pricing';
+import { computeTotals, itemsTotalOf, OrderTotals, priceLine, PricedLine } from './pricing';
 
 const REF_ATTEMPTS = 3;
 
 interface CheckoutContext extends CartOwner {
   ip?: string;
   userAgent?: string;
+}
+
+export interface CheckoutQuote extends OrderTotals {
+  delivery: { zone: string | null; weightKg: string; bands: number };
+  couponCode: string | null;
+  freeShipping: boolean;
 }
 
 export interface CheckoutResult extends OrderView {
@@ -77,79 +83,40 @@ export class CheckoutService {
     return replayed ? { ...result, replayed: true } : result;
   }
 
+  /**
+   * What the order would cost right now (increment 3.8), so the storefront can
+   * show the delivery fee and total before the customer commits. Runs exactly the
+   * pricing checkout runs, so the quote and the order cannot disagree; nothing is
+   * reserved or written.
+   */
+  async quote(context: CheckoutContext, dto: CheckoutQuoteDto): Promise<CheckoutQuote> {
+    const cart = await this.carts.require(context);
+    if (cart.items.length === 0) throw new AppError('CART_EMPTY', 'Your cart is empty');
+    let province = dto.province;
+    if (dto.deliveryType === DeliveryType.HOME_DELIVERY && dto.addressId) {
+      province = (await this.resolveAddress(context, { ...dto, paymentMethod: PaymentMethod.COD }))?.province;
+    }
+    const priced = await this.price(cart, dto.deliveryType, province, context.customerId);
+    return {
+      ...priced.totals,
+      delivery: { zone: priced.delivery.zone, weightKg: priced.delivery.weightKg, bands: priced.delivery.bands },
+      couponCode: priced.coupon?.outcome.code ?? null,
+      freeShipping: priced.coupon?.outcome.freeShipping ?? false,
+    };
+  }
+
   private async place(context: CheckoutContext, dto: CheckoutDto): Promise<OrderView> {
     const cart = await this.carts.require(context);
     if (cart.items.length === 0) throw new AppError('CART_EMPTY', 'Your cart is empty');
 
     const contact = await this.resolveContact(context, dto);
     const address = await this.resolveAddress(context, dto);
-
-    // Every line is re-read from the catalog: the cart snapshot is a quote, not a promise.
-    const lines: PricedLine[] = [];
-    const reservations: ReservationLine[] = [];
-    let weightKg = 0;
-    for (const item of cart.items) {
-      const variant = await this.prisma.productVariant.findFirst({
-        where: {
-          id: item.variantId,
-          isActive: true,
-          product: { status: ProductStatus.ACTIVE, brand: { isActive: true }, category: { isActive: true } },
-        },
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          price: true,
-          weightKg: true,
-          isAvailableOnOrder: true,
-          product: { select: { name: true } },
-        },
-      });
-      if (!variant) {
-        throw conflict('An item in your cart is no longer available', { sku: item.variant.sku });
-      }
-      if (!item.unitPrice.equals(variant.price)) {
-        throw new AppError('PRICE_CHANGED', 'A price in your cart changed. Review the cart and try again.', {
-          sku: variant.sku,
-          was: item.unitPrice.toFixed(2),
-          now: variant.price.toFixed(2),
-        });
-      }
-
-      lines.push(
-        priceLine({
-          variantId: variant.id,
-          sku: variant.sku,
-          productName: variant.product.name,
-          variantName: variant.name,
-          quantity: item.quantity,
-          unitPrice: variant.price.toFixed(2),
-        }),
-      );
-      reservations.push({
-        variantId: variant.id,
-        sku: variant.sku,
-        quantity: item.quantity,
-        isAvailableOnOrder: variant.isAvailableOnOrder,
-      });
-      weightKg += Number(variant.weightKg ?? 0) * item.quantity;
-    }
-
-    const delivery = quoteDelivery({
-      deliveryType: dto.deliveryType,
-      province: address?.province,
-      weightKg: weightKg.toFixed(3),
-    });
-
-    // The coupon is re-evaluated here, not trusted from the cart: prices, stock
-    // and eligibility can all have moved since it was applied (REQ-22).
-    const coupon = await this.resolveCoupon(cart, context.customerId);
-    const totals = computeTotals({
-      itemsTotal: itemsTotalOf(lines),
-      discountTotal: coupon?.outcome.discount,
-      deliveryFee: coupon?.outcome.freeShipping ? '0.00' : delivery.fee,
-      taxRatePercent: this.config.get('TAX_RATE_PERCENT', { infer: true }),
-    });
+    const { lines, reservations, totals, coupon } = await this.price(
+      cart,
+      dto.deliveryType,
+      address?.province,
+      context.customerId,
+    );
 
     for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
       try {
@@ -275,6 +242,83 @@ export class CheckoutService {
     });
 
     return serializeOrder(order);
+  }
+
+  /** Re-price the cart from the catalog: lines, delivery, coupon and totals. */
+  private async price(
+    cart: Awaited<ReturnType<CartService['require']>>,
+    deliveryType: DeliveryType,
+    province: string | undefined,
+    customerId: string | undefined,
+  ) {
+    // Every line is re-read from the catalog: the cart snapshot is a quote, not a promise.
+    const lines: PricedLine[] = [];
+    const reservations: ReservationLine[] = [];
+    let weightKg = 0;
+    for (const item of cart.items) {
+      const variant = await this.prisma.productVariant.findFirst({
+        where: {
+          id: item.variantId,
+          isActive: true,
+          product: { status: ProductStatus.ACTIVE, brand: { isActive: true }, category: { isActive: true } },
+        },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          price: true,
+          weightKg: true,
+          isAvailableOnOrder: true,
+          product: { select: { name: true } },
+        },
+      });
+      if (!variant) {
+        throw conflict('An item in your cart is no longer available', { sku: item.variant.sku });
+      }
+      if (!item.unitPrice.equals(variant.price)) {
+        throw new AppError('PRICE_CHANGED', 'A price in your cart changed. Review the cart and try again.', {
+          sku: variant.sku,
+          was: item.unitPrice.toFixed(2),
+          now: variant.price.toFixed(2),
+        });
+      }
+
+      lines.push(
+        priceLine({
+          variantId: variant.id,
+          sku: variant.sku,
+          productName: variant.product.name,
+          variantName: variant.name,
+          quantity: item.quantity,
+          unitPrice: variant.price.toFixed(2),
+        }),
+      );
+      reservations.push({
+        variantId: variant.id,
+        sku: variant.sku,
+        quantity: item.quantity,
+        isAvailableOnOrder: variant.isAvailableOnOrder,
+      });
+      weightKg += Number(variant.weightKg ?? 0) * item.quantity;
+    }
+
+    const delivery = quoteDelivery({
+      deliveryType,
+      province,
+      weightKg: weightKg.toFixed(3),
+    });
+
+    // The coupon is re-evaluated here, not trusted from the cart: prices, stock
+    // and eligibility can all have moved since it was applied (REQ-22).
+    const coupon = await this.resolveCoupon(cart, customerId);
+    const totals = computeTotals({
+      itemsTotal: itemsTotalOf(lines),
+      discountTotal: coupon?.outcome.discount,
+      deliveryFee: coupon?.outcome.freeShipping ? '0.00' : delivery.fee,
+      taxRatePercent: this.config.get('TAX_RATE_PERCENT', { infer: true }),
+    });
+
+    return { lines, reservations, delivery, coupon, totals };
   }
 
   /**

@@ -95,7 +95,9 @@ export class AttributeValuesService {
     const missing = template
       .filter((binding) => binding.isRequired && !present.has(binding.attributeId))
       .map((binding) => ({ attributeId: binding.attributeId, slug: binding.attribute.slug, name: binding.attribute.name }));
-    if (missing.length > 0) throw invalid('Required attributes are missing', { missing });
+    if (missing.length > 0) {
+      throw invalid(`Required attributes are missing: ${missing.map((entry) => entry.name).join(', ')}`, { missing });
+    }
   }
 }
 

@@ -7,7 +7,8 @@ Pakistan-focused electronics & home-appliances e-commerce platform (monorepo).
 | Path | Purpose |
 |---|---|
 | `apps/api` | NestJS modular-monolith REST API (`/api/v1`) |
-| `apps/web` | Next.js storefront + admin (scaffold) |
+| `apps/web` | Next.js storefront + admin console (BFF over the API) |
+| `e2e` | Playwright journeys against a live API + storefront build |
 | `packages/shared` | money (decimal), paging, slugify, error contract |
 | `packages/config` | zod-validated env schema |
 | `packages/prisma` | single source of truth for the data model + migrations |
@@ -34,9 +35,22 @@ npm test                   # unit + integration (api e2e requires postgres+redis
 ADMIN_PASSWORD='choose-a-strong-one' npm run admin:create -w apps/api -- \
   --email you@example.com --name "You" --role SUPER_ADMIN
 
+npm run seed               # demo catalog + one admin per role (password Fakhri-dev-passw0rd)
+cp apps/web/.env.example apps/web/.env.local
+
 npm run dev:api            # http://localhost:3000 (health: /health)
-npm run dev:web            # http://localhost:3001
+npm run dev:web            # http://localhost:3001  (admin: /admin)
 ```
+
+## End-to-end journeys
+
+```sh
+npx playwright install chromium   # once
+npm run e2e                       # own API on :3100, storefront build on :3101
+```
+
+Stop any other API using the same database first: its outbox dispatcher can take the events the
+revalidation journeys wait for. See `docs/aidlc/13-increment-3.8-storefront-admin-e2e.md`.
 
 `apps/api/.env` needs `JWT_ACCESS_SECRET` (32+ chars, no default). See `apps/api/.env.example`.
 
