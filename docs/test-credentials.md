@@ -25,7 +25,7 @@ seeding to use a different one.
 | `catalog@fakhri.test` | CATALOG | Products, categories, brands, attributes |
 | `inventory@fakhri.test` | INVENTORY | Stock, adjustments, ledger, warehouses |
 | `orders@fakhri.test` | ORDERS | Orders (status, shipments, invoices), reports |
-| `marketing@fakhri.test` | MARKETING | Coupons, reviews, content pages and banners |
+| `marketing@fakhri.test` | MARKETING | Coupons, reviews, content, leads, and campaigns |
 | `support@fakhri.test` | SUPPORT | Reviews |
 
 A role that opens a section it cannot use sees an explanation instead of the screen. The API refuses the

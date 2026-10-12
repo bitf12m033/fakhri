@@ -18,11 +18,12 @@ export default async function AdminDashboard() {
   const admin = (await currentAdmin())!;
   const sees = (section: Section) => canAccess(admin.role, section);
 
-  const [pending, confirmed, packed, reviews] = await Promise.all([
+  const [pending, confirmed, packed, reviews, waiting] = await Promise.all([
     sees('orders') ? count('/admin/orders?status=PENDING&pageSize=1') : null,
     sees('orders') ? count('/admin/orders?status=CONFIRMED&pageSize=1') : null,
     sees('orders') ? count('/admin/orders?status=PACKED&pageSize=1') : null,
     sees('reviews') ? count('/admin/reviews?status=PENDING&pageSize=1') : null,
+    sees('leads') ? count('/admin/leads?consent=UNKNOWN&pageSize=1') : null,
   ]);
 
   const stats = [
@@ -30,6 +31,7 @@ export default async function AdminDashboard() {
     { label: 'Orders to pack', value: confirmed, href: '/admin/orders?status=CONFIRMED' },
     { label: 'Orders to ship', value: packed, href: '/admin/orders?status=PACKED' },
     { label: 'Reviews to moderate', value: reviews, href: '/admin/reviews?status=PENDING' },
+    { label: 'Leads without consent', value: waiting, href: '/admin/leads?consent=UNKNOWN' },
   ].filter((stat) => stat.value !== null);
 
   return (

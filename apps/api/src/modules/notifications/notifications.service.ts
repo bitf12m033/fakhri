@@ -2,18 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppConfig } from '@fakhri/config';
 import { NotificationMessage } from './templates';
+import { WhatsAppCloudClient } from './whatsapp';
 
 export interface DeliveryRecord extends NotificationMessage {
   deliveredAt: string;
 }
 
 /**
- * Notification delivery (REQ-25). The console adapter is the only one for now —
- * provider adapters (SMS gateway, SMTP, WhatsApp) slot in behind `deliver`
- * without the callers changing.
- *
- * Recent deliveries are kept in memory so development and tests can assert what
- * would have been sent; it is a ring buffer, not a record of truth.
+ * Notification delivery (REQ-25). `console` logs the message, `none` drops it,
+ * and `whatsapp` sends campaign templates through the Cloud API. Recent
+ * deliveries are a ring buffer for tests, not a record of truth.
  */
 @Injectable()
 export class NotificationsService {
@@ -21,20 +19,31 @@ export class NotificationsService {
   private readonly recent: DeliveryRecord[] = [];
   private static readonly KEEP = 100;
 
-  constructor(private readonly config: ConfigService<AppConfig, true>) {}
+  constructor(
+    private readonly config: ConfigService<AppConfig, true>,
+    private readonly whatsapp: WhatsAppCloudClient,
+  ) {}
 
   async deliver(messages: readonly NotificationMessage[]): Promise<number> {
     const channel = this.config.get('NOTIFICATIONS_CHANNEL', { infer: true });
     if (channel === 'none' || messages.length === 0) return 0;
 
+    let sent = 0;
     for (const message of messages) {
-      this.logger.log(
-        `[${message.channel}] to ${redact(message.to)} · ${message.subject} · ${message.body}`,
-      );
+      if (channel === 'whatsapp' && message.channel === 'WHATSAPP') {
+        if (!message.whatsapp) continue;
+        try {
+          await this.whatsapp.send({ ...message.whatsapp, to: message.to });
+        } catch {
+          continue;
+        }
+      }
+      this.logger.log(`[${message.channel}] to ${redact(message.to)} · ${message.subject} · ${message.body}`);
       this.recent.push({ ...message, deliveredAt: new Date().toISOString() });
+      sent += 1;
     }
     while (this.recent.length > NotificationsService.KEEP) this.recent.shift();
-    return messages.length;
+    return sent;
   }
 
   /** Most recent first. Development and test aid only. */

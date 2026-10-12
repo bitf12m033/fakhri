@@ -21,6 +21,8 @@ export const SECTIONS = {
   coupons: { label: 'Coupons', href: '/admin/coupons', roles: ['MARKETING'] },
   reviews: { label: 'Reviews', href: '/admin/reviews', roles: ['MARKETING', 'SUPPORT'] },
   content: { label: 'Content', href: '/admin/content', roles: ['MARKETING'] },
+  leads: { label: 'Leads', href: '/admin/leads', roles: ['MARKETING'] },
+  campaigns: { label: 'Campaigns', href: '/admin/campaigns', roles: ['MARKETING'] },
   reports: { label: 'Reports', href: '/admin/reports', roles: ['ORDERS'] },
   users: { label: 'Admin users', href: '/admin/users', roles: [] },
   audit: { label: 'Audit log', href: '/admin/audit', roles: [] },

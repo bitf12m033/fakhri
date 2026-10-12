@@ -173,3 +173,5 @@ drive both against a live API.
 
 3.9 hardening: isolated test databases, load and Lighthouse budgets, the reverse proxy and security
 headers, observability, docs sync.
+
+Lead import and WhatsApp campaigns shipped as 3.10 (`docs/aidlc/14-increment-3.10-leads.md`).

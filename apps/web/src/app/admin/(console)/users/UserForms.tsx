@@ -14,7 +14,7 @@ const ROLES: { value: AdminRole; label: string }[] = [
   { value: 'CATALOG', label: 'Catalog' },
   { value: 'INVENTORY', label: 'Inventory' },
   { value: 'ORDERS', label: 'Orders and reports' },
-  { value: 'MARKETING', label: 'Marketing (coupons, content, reviews)' },
+  { value: 'MARKETING', label: 'Marketing (coupons, content, reviews, leads, campaigns)' },
   { value: 'SUPPORT', label: 'Support (reviews)' },
 ];
 

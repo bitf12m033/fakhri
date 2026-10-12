@@ -44,7 +44,15 @@ const EnvSchema = z.object({
   OUTBOX_POLL_MS: z.coerce.number().int().min(0).default(5000),
   OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(20),
-  NOTIFICATIONS_CHANNEL: z.enum(['console', 'none']).default('console'),
+  // console logs the message, none drops it, whatsapp calls the Cloud API.
+  // whatsapp refuses to boot without the token and phone number id, so a dev
+  // machine cannot send real messages by leaving the default in place.
+  NOTIFICATIONS_CHANNEL: z.enum(['console', 'none', 'whatsapp']).default('console'),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(16).optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(8).optional(),
+  WHATSAPP_GRAPH_VERSION: z.string().default('v21.0'),
 
   // Storefront cache revalidation (increment 3.8). Both unset disables it, which is
   // what tests want; the storefront then relies on its time-based revalidation.
@@ -57,6 +65,14 @@ const EnvSchema = z.object({
   SELLER_STRN: z.string().optional(),
   SELLER_ADDRESS: z.string().default('Lahore, Pakistan'),
   SELLER_PHONE: z.string().default('+924200000000'),
+}).superRefine((env, ctx) => {
+  if (env.NOTIFICATIONS_CHANNEL !== 'whatsapp') return;
+  if (!env.WHATSAPP_ACCESS_TOKEN) {
+    ctx.addIssue({ code: 'custom', path: ['WHATSAPP_ACCESS_TOKEN'], message: 'Required when NOTIFICATIONS_CHANNEL is whatsapp' });
+  }
+  if (!env.WHATSAPP_PHONE_NUMBER_ID) {
+    ctx.addIssue({ code: 'custom', path: ['WHATSAPP_PHONE_NUMBER_ID'], message: 'Required when NOTIFICATIONS_CHANNEL is whatsapp' });
+  }
 });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

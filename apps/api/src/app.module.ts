@@ -22,6 +22,8 @@ import { ContentModule } from './modules/content/content.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { SearchModule } from './modules/search/search.module';
 import { RevalidationModule } from './modules/revalidation/revalidation.module';
+import { LeadsModule } from './modules/leads/leads.module';
+import { CampaignsModule } from './modules/campaigns/campaigns.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { RevalidationModule } from './modules/revalidation/revalidation.module';
     ReportingModule,
     NotificationsModule,
     RevalidationModule,
+    LeadsModule,
+    CampaignsModule,
   ],
 })
 export class AppModule {}

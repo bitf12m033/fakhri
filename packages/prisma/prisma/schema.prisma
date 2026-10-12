@@ -427,6 +427,7 @@ model Customer {
   reviews       Review[]
   refreshTokens RefreshToken[]
   carts         Cart[]
+  leads         Lead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -757,6 +758,152 @@ model Banner {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- Leads (increment 3.10)
+
+enum LeadConsent {
+  UNKNOWN
+  OPTED_IN
+  OPTED_OUT
+}
+
+// A person we might message. Distinct from Customer: an upload must not create a login.
+model Lead {
+  id              String      @id @default(cuid())
+  phone           String      @unique
+  firstName       String?
+  lastName        String?
+  contactName     String?
+  accountName     String?
+  city            String?
+  locality        String?
+  zipCode         String?
+  country         String?
+  productInterest String?
+  consent         LeadConsent @default(UNKNOWN)
+  consentAt       DateTime?
+  customerId      String?
+
+  customer   Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  cases      LeadCase[]
+  recipients CampaignRecipient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+  @@index([consent])
+  @@index([customerId])
+}
+
+// One source row (a case, a call) that pointed at a lead. Re-importing the same case number is a no-op.
+model LeadCase {
+  id          String    @id @default(cuid())
+  leadId      String
+  caseNumber  String?   @unique
+  status      String?
+  comment     String?
+  product     String?
+  priority    String?
+  owner       String?
+  occurredAt  DateTime?
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model LeadImport {
+  id               String  @id @default(cuid())
+  fileName         String?
+  rowCount         Int
+  validRows        Int
+  invalidRows      Int
+  createdLeads     Int
+  updatedLeads     Int
+  linkedCustomers  Int
+  createdById      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+enum CampaignTemplateStatus {
+  DRAFT
+  APPROVED
+}
+
+enum CampaignStatus {
+  SENDING
+  SENT
+  FAILED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// Message body marketing has marked approved. A draft cannot be sent.
+model CampaignTemplate {
+  id                   String                 @id @default(cuid())
+  name                 String
+  body                 String
+  status               CampaignTemplateStatus @default(DRAFT)
+  // Meta template name. Required only when delivery uses the Cloud API.
+  providerTemplateName String?
+  language             String                 @default("en")
+  createdById          String?
+
+  campaigns Campaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// One send to the leads who match the audience and have opted in.
+model Campaign {
+  id              String         @id @default(cuid())
+  name            String
+  templateId      String
+  city            String?
+  productInterest String?
+  status          CampaignStatus @default(SENDING)
+  recipientCount  Int
+  sentCount       Int            @default(0)
+  createdById     String?
+  sentAt          DateTime?
+
+  template   CampaignTemplate    @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  recipients CampaignRecipient[]
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([templateId])
+}
+
+model CampaignRecipient {
+  id         String                  @id @default(cuid())
+  campaignId String
+  leadId     String
+  status     CampaignRecipientStatus @default(PENDING)
+  sentAt     DateTime?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, leadId])
+  @@index([leadId])
 }
 
 // Replay protection for unsafe operations: the first request stores its result,

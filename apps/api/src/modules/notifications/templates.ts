@@ -1,7 +1,15 @@
 import { OrderStatus } from '@fakhri/prisma';
 import { formatPKR } from '@fakhri/shared';
 
-export type NotificationChannel = 'SMS' | 'EMAIL';
+/** WHATSAPP is the campaign channel. The console adapter logs it; the Cloud API sends it when configured. */
+export type NotificationChannel = 'SMS' | 'EMAIL' | 'WHATSAPP';
+
+export interface WhatsAppTemplateSend {
+  templateName: string;
+  language: string;
+  /** Placeholder values in the order they appear in the local body. */
+  bodyParameters: string[];
+}
 
 export interface NotificationMessage {
   channel: NotificationChannel;
@@ -9,6 +17,8 @@ export interface NotificationMessage {
   subject: string;
   body: string;
   event: string;
+  /** Set for campaign sends. The console adapter ignores it; the Cloud API sends it. */
+  whatsapp?: WhatsAppTemplateSend;
 }
 
 export interface OrderContext {
