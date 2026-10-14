@@ -76,12 +76,24 @@ describe('Lead import (e2e)', () => {
     expect(preview.body.data.newLeads).toBe(1);
     expect(await app.get(PrismaService).lead.count({ where: { phone: fresh } })).toBe(0);
 
-    const refused = await request(app.getHttpServer())
+    const none = await request(app.getHttpServer())
       .post('/api/v1/admin/leads/imports')
       .set('authorization', `Bearer ${marketing.token}`)
-      .send({ csv: dirty });
-    expect(refused.status).toBe(400);
-    expect(refused.body.error.code).toBe('INVALID_INPUT');
+      .send({ csv: 'Phone,First Name\n12345,Nope\n' });
+    expect(none.status).toBe(400);
+    expect(none.body.error.code).toBe('INVALID_INPUT');
+
+    const kept = allocatePhone();
+    phones.push(kept);
+    const partial = await request(app.getHttpServer())
+      .post('/api/v1/admin/leads/imports')
+      .set('authorization', `Bearer ${marketing.token}`)
+      .send({ csv: `Phone,First Name\n${local(kept)},Sana\n12345,Nope\n`, fileName: 'partial.csv' });
+    expect(partial.status, JSON.stringify(partial.body)).toBe(201);
+    expect(partial.body.data.createdLeads).toBe(1);
+    expect(partial.body.data.invalidRows).toBe(1);
+    importIds.push(partial.body.data.importId);
+    expect(await app.get(PrismaService).lead.count({ where: { phone: fresh } })).toBe(0);
 
     const clean = [
       'Case Number,Account Name,Phone,Case Status,Product,City,First Name,Caller Phone',

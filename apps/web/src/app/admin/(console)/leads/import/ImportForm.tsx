@@ -34,7 +34,7 @@ export function ImportForm() {
   }
 
   const body = { csv, ...(fileName ? { fileName } : {}) };
-  const canSave = Boolean(report && report.invalidRows === 0 && report.validRows > 0);
+  const canSave = Boolean(report && report.validRows > 0);
 
   return (
     <div className="stack">
@@ -111,7 +111,9 @@ export function ImportForm() {
           ) : null}
           {report.invalidRows > 0 ? (
             <>
-              <p>Fix these rows and preview again. Nothing is saved while a row is invalid.</p>
+              <p>
+                These rows have no Pakistani mobile number, so they stay out. The other {report.validRows} can be saved.
+              </p>
               <ul>
                 {report.issues.map((issue) => (
                   <li key={`${issue.line}-${issue.message}`}>

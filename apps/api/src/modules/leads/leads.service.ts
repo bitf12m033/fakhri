@@ -47,8 +47,8 @@ export class LeadsService {
     dto: ImportLeadsDto,
   ): Promise<ImportReport & { importId: string; createdLeads: number; updatedLeads: number; linkedCustomers: number }> {
     const plan = await this.plan(dto);
-    if (plan.report.invalidRows > 0) {
-      throw invalidInput('The file has rows that cannot be imported', {
+    if (plan.report.validRows === 0) {
+      throw invalidInput('The file has no rows with a Pakistani mobile number', {
         invalidRows: plan.report.invalidRows,
         issues: plan.report.issues,
       });
@@ -74,7 +74,7 @@ export class LeadsService {
           createdById: currentActor()?.principal?.type === 'ADMIN' ? currentActor()?.principal?.id : undefined,
           rowCount: plan.report.rows,
           validRows: plan.report.validRows,
-          invalidRows: 0,
+          invalidRows: plan.report.invalidRows,
           createdLeads,
           updatedLeads,
           linkedCustomers,

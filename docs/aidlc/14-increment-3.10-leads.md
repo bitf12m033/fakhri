@@ -41,7 +41,7 @@ people who have agreed to WhatsApp. A lead is not a store account.
 
 ## Rules enforced
 
-- Preview writes nothing. Commit writes only when every row has a valid Pakistani mobile number, and one bad row rejects the whole file.
+- Preview writes nothing. Commit saves every row with a Pakistani mobile number and leaves the others out. A file with no such number is rejected.
 - Rows that share a phone become one lead. The first non-empty name, city and product win; a later empty cell does not clear them.
 - A case number is stored once. Importing the same file again does not duplicate that case.
 - A phone that already belongs to a customer is linked. The customer record itself is not changed, and no login is created.
@@ -58,7 +58,7 @@ people who have agreed to WhatsApp. A lead is not a store account.
 - `GET /webhooks/whatsapp` answers Meta's challenge when `WHATSAPP_VERIFY_TOKEN` matches. `POST` checks `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET`. A text or button that contains STOP opts that lead out. An unknown number is ignored, and the phone is not written to the audit log.
 - The campaign audit row stores the template, the filters, and the counts.
 
-Recognized headers include Phone, Caller Phone, First Name, Last Name, Contact, Account Name, City, Locality, ZipCode, Country, Product, Case Number, Case Status, Case Comment, Priority and Owner.
+Recognized headers include Phone, Caller Phone, Caller Phone Number, First Name, Last Name, Contact, Account Name, City, Locality, Locality/District, ZipCode, Country, Product, Product Group, Case Number, Case Status, Case Comment, Priority and Owner. Phone values may use local, `92`, `0092`, or `Phone:0092` forms.
 
 The marketing console is under Leads and Campaigns. Import previews a CSV before saving. A lead page records opt-in and opt-out, and the list records a STOP reply by phone. Templates are drafted and approved there. A new campaign previews the opted-in audience and then sends.
 

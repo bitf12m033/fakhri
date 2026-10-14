@@ -43,4 +43,35 @@ describe('lead import', () => {
     expect(plan.leads[0]).toMatchObject({ phone: '+923001234567', city: 'Multan' });
     expect(plan.report.newLeads).toBe(1);
   });
+
+  it('recognizes the case-export headers and phone prefix', () => {
+    const csv = [
+      'Case Number,Contact,Product Group,Caller Phone Number,Locality/District,City',
+      'CPK-1,Customer,Home Air Conditioner,3130001509,Chah Miran,Lahore',
+      'CPK-2,Customer,Washing Machine,Phone:00923392449255,Johar Town,Lahore',
+    ].join('\n');
+    const plan = planImport(csv, { leadPhones: new Set(), customerPhones: new Set() });
+
+    expect(plan.report.invalidRows).toBe(0);
+    expect(plan.report.recognizedColumns).toEqual([
+      'Case Number',
+      'Contact',
+      'Product Group',
+      'Caller Phone Number',
+      'Locality/District',
+      'City',
+    ]);
+    expect(plan.leads).toEqual([
+      expect.objectContaining({
+        phone: '+923130001509',
+        productInterest: 'Home Air Conditioner',
+        locality: 'Chah Miran',
+      }),
+      expect.objectContaining({
+        phone: '+923392449255',
+        productInterest: 'Washing Machine',
+        locality: 'Johar Town',
+      }),
+    ]);
+  });
 });

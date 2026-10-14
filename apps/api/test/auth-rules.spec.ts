@@ -39,6 +39,7 @@ describe('normalizePhone', () => {
       '0300 123 4567',
       '0300-123-4567',
       '(0300) 1234567',
+      'Phone:00923001234567',
     ]) {
       expect(normalizePhone(input), input).toBe('+923001234567');
     }

@@ -6,7 +6,8 @@ import { invalidInput } from '@fakhri/shared';
  * `0092…`, `92…`). Pure, so it is unit tested directly.
  */
 export function normalizePhone(raw: string): string {
-  const digitsOnly = raw.replace(/[\s()\-.]/g, '');
+  // Case exports sometimes prefix an otherwise valid number with "Phone:".
+  const digitsOnly = raw.replace(/^phone\s*:\s*/i, '').replace(/[\s()\-.]/g, '');
   let national: string;
 
   if (digitsOnly.startsWith('+92')) national = digitsOnly.slice(3);

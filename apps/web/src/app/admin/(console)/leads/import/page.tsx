@@ -15,7 +15,7 @@ export default async function ImportLeadsPage() {
       <h1>Import leads</h1>
       <SubNav links={LEAD_LINKS} current="/admin/leads/import" />
       <p className="muted small">
-        Preview checks the file and writes nothing. Save runs only when every phone number is valid. Consent stays “not asked”.
+        Preview checks the file and writes nothing. Save keeps the rows with a Pakistani mobile number and leaves the others out. Consent stays “not asked”.
       </p>
       <ImportForm />
     </div>

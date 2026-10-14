@@ -10,6 +10,8 @@
 process.env.NODE_ENV ??= 'test';
 // Specs drain the outbox on demand; a background poller would race their assertions.
 process.env.OUTBOX_POLL_MS ??= '0';
+// Tests never call the WhatsApp Cloud API, whatever apps/api/.env says.
+process.env.NOTIFICATIONS_CHANNEL = 'console';
 process.env.REDIS_URL ??= 'redis://localhost:6379';
 process.env.DATABASE_URL ??=
   'postgresql://fakhri:fakhri_dev@localhost:5432/fakhri?connection_limit=10&pool_timeout=30';
